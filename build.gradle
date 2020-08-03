@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.0-rc'
+}
+
+group 'com.welyab.ankobachen'
+version '1.0.0-SNAPSHOT'
+
+application {
+    mainClassName  = 'com.welyab.ankobachen.Main'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    compile group: 'org.apache.commons', name: 'commons-compress', version: '1.20'
+    testCompile group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.6.0'
+    testRuntime group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: '5.6.0'
+    testCompile group: 'org.junit.jupiter', name: 'junit-jupiter-params', version: '5.6.0'
+}
+
+tasks {
+    test {
+        useJUnitPlatform()
+    }
+}
