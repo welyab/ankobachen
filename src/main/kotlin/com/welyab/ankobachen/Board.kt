@@ -17,6 +17,8 @@ package com.welyab.ankobachen
 
 import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
+import com.welyab.ankobachen.MovementFlags.Companion.LEFT_CASTLING_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.RIGHT_CASTLING_MASK
 import com.welyab.ankobachen.Piece.BLACK_BISHOP
 import com.welyab.ankobachen.Piece.BLACK_KING
 import com.welyab.ankobachen.Piece.BLACK_KNIGHT
@@ -30,14 +32,17 @@ import com.welyab.ankobachen.Piece.WHITE_PAWN
 import com.welyab.ankobachen.Piece.WHITE_QUEEN
 import com.welyab.ankobachen.Piece.WHITE_ROOK
 import com.welyab.ankobachen.PieceType.BISHOP
+import com.welyab.ankobachen.PieceType.KING
+import com.welyab.ankobachen.PieceType.KNIGHT
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.extensions.shift
 import com.welyab.ankobachen.old.NEWLINE
-import kotlin.time.ExperimentalTime
+import java.util.stream.IntStream
+import kotlin.math.absoluteValue
 
 @ExperimentalUnsignedTypes
-val KING_MOVE_MASK = ulongArrayOf(
+private val KING_MOVE_MASK = ulongArrayOf(
     0x40c0000000000000uL, 0xa0e0000000000000uL, 0x5070000000000000uL, 0x2838000000000000uL,
     0x141c000000000000uL, 0x0a0e000000000000uL, 0x0507000000000000uL, 0x0203000000000000uL,
     0xc040c00000000000uL, 0xe0a0e00000000000uL, 0x7050700000000000uL, 0x3828380000000000uL,
@@ -57,7 +62,7 @@ val KING_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val ROOK_MOVE_MASK = ulongArrayOf(
+private val ROOK_MOVE_MASK = ulongArrayOf(
     0x7e80808080808000uL, 0x3e40404040404000uL, 0x5e20202020202000uL, 0x6e10101010101000uL,
     0x7608080808080800uL, 0x7a04040404040400uL, 0x7c02020202020200uL, 0x7e01010101010100uL,
     0x007e808080808000uL, 0x003e404040404000uL, 0x005e202020202000uL, 0x006e101010101000uL,
@@ -77,7 +82,7 @@ val ROOK_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val BISHOP_MOVE_MASK = ulongArrayOf(
+private val BISHOP_MOVE_MASK = ulongArrayOf(
     0x0040201008040200uL, 0x0020100804020000uL, 0x0050080402000000uL, 0x0028440200000000uL,
     0x0014224000000000uL, 0x000a102040000000uL, 0x0004081020400000uL, 0x0002040810204000uL,
     0x0000402010080400uL, 0x0000201008040200uL, 0x0000500804020000uL, 0x0000284402000000uL,
@@ -96,11 +101,11 @@ val BISHOP_MOVE_MASK = ulongArrayOf(
     0x0000000040221400uL, 0x0000004020100a00uL, 0x0000402010080400uL, 0x0040201008040200uL
 )
 
-val ROOK_MOVEMENT_DATABASE = BitboardUtil.generateRookMovementDatabase()
-val BISHOP_MOVEMENT_DATABASE = BitboardUtil.generateBishopMovementDatabase()
+private val ROOK_MOVEMENT_DATABASE = BitboardUtil.generateRookMovementDatabase()
+private val BISHOP_MOVEMENT_DATABASE = BitboardUtil.generateBishopMovementDatabase()
 
 @ExperimentalUnsignedTypes
-val KNIGHT_MOVE_MASK = ulongArrayOf(
+private val KNIGHT_MOVE_MASK = ulongArrayOf(
     0x0020400000000000uL, 0x0010a00000000000uL, 0x0088500000000000uL, 0x0044280000000000uL,
     0x0022140000000000uL, 0x00110a0000000000uL, 0x0008050000000000uL, 0x0004020000000000uL,
     0x2000204000000000uL, 0x100010a000000000uL, 0x8800885000000000uL, 0x4400442800000000uL,
@@ -120,7 +125,7 @@ val KNIGHT_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val WHITE_PAWN_SINGLE_MOVE_MASK = ulongArrayOf(
+private val WHITE_PAWN_SINGLE_MOVE_MASK = ulongArrayOf(
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x8000000000000000uL, 0x4000000000000000uL, 0x2000000000000000uL, 0x1000000000000000uL,
@@ -140,7 +145,7 @@ val WHITE_PAWN_SINGLE_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val BLACK_PAWN_SINGLE_MOVE_MASK = ulongArrayOf(
+private val BLACK_PAWN_SINGLE_MOVE_MASK = ulongArrayOf(
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000800000000000uL, 0x0000400000000000uL, 0x0000200000000000uL, 0x0000100000000000uL,
@@ -160,7 +165,7 @@ val BLACK_PAWN_SINGLE_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val WHITE_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
+private val WHITE_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x4000000000000000uL, 0xa000000000000000uL, 0x5000000000000000uL, 0x2800000000000000uL,
@@ -180,7 +185,7 @@ val WHITE_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val BLACK_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
+private val BLACK_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000400000000000uL, 0x0000a00000000000uL, 0x0000500000000000uL, 0x0000280000000000uL,
@@ -200,7 +205,7 @@ val BLACK_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val WHITE_PAWN_DOUBLE_MOVE_MASK = ulongArrayOf(
+private val WHITE_PAWN_DOUBLE_MOVE_MASK = ulongArrayOf(
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
@@ -220,7 +225,7 @@ val WHITE_PAWN_DOUBLE_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val BLACK_PAWN_DOUBLE_MOVE_MASK = ulongArrayOf(
+private val BLACK_PAWN_DOUBLE_MOVE_MASK = ulongArrayOf(
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
     0x0000808000000000uL, 0x0000404000000000uL, 0x0000202000000000uL, 0x0000101000000000uL,
@@ -240,7 +245,7 @@ val BLACK_PAWN_DOUBLE_MOVE_MASK = ulongArrayOf(
 )
 
 @ExperimentalUnsignedTypes
-val WHITE_EN_PASSANT_TARGET_SQUARE_MASK = listOf(
+private val WHITE_EN_PASSANT_TARGET_SQUARE_MASK = listOf(
     0x0000800000000000uL,
     0x0000400000000000uL,
     0x0000200000000000uL,
@@ -252,7 +257,7 @@ val WHITE_EN_PASSANT_TARGET_SQUARE_MASK = listOf(
 )
 
 @ExperimentalUnsignedTypes
-val BLACK_EN_PASSANT_TARGET_SQUARE_MASK = listOf(
+private val BLACK_EN_PASSANT_TARGET_SQUARE_MASK = listOf(
     0x0000000000800000uL,
     0x0000000000400000uL,
     0x0000000000200000uL,
@@ -266,6 +271,7 @@ val BLACK_EN_PASSANT_TARGET_SQUARE_MASK = listOf(
 private val WHITE_PAWN_REPLACEMENTS = listOf(WHITE_QUEEN, WHITE_ROOK, WHITE_BISHOP, WHITE_KNIGHT)
 private val BLACK_PAWN_REPLACEMENTS = listOf(BLACK_QUEEN, BLACK_ROOK, BLACK_BISHOP, BLACK_KNIGHT)
 
+@ExperimentalUnsignedTypes
 private val ROWS = listOf(
     0xff00000000000000uL,
     0x00ff000000000000uL,
@@ -280,6 +286,7 @@ private val ROWS = listOf(
 private val RANK_1 = ROWS[7]
 private val RANK_8 = ROWS[0]
 
+@ExperimentalUnsignedTypes
 private val COLUMNS = listOf(
     0x8080808080808080uL,
     0x4040404040404040uL,
@@ -291,76 +298,124 @@ private val COLUMNS = listOf(
     0x0101010101010101uL
 )
 
+private val LEFT_CASTLING_FINAL_POSITIONS = 0b00110000_00000000_00000000_00000000_00000000_00000000_00000000_00110000uL
+private val RIGHT_CASTLING_FINAL_POSITIONS = 0b00000110_00000000_00000000_00000000_00000000_00000000_00000000_00000110uL
+
 class BoardException(message: String = "", cause: Throwable? = null) : ChessException(message, cause)
 
-private val WHITE_KING_LEFT_CASTLING_FINAL_POSITION: ULong =
-    0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00100000u
-private val WHITE_KING_RIGHT_CASTLING_FINAL_POSITION: ULong =
-    0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000010u
-private val BLACK_KING_LEFT_CASTLING_FINAL_POSITION: ULong =
-    0b00100000_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-private val BLACK_KING_RIGHT_CASTLING_FINAL_POSITION: ULong =
-    0b00000010_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-
-private val WHITE_ROOK_LEFT_CASTLING_FINAL_POSITION: ULong =
-    0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00010000u
-private val WHITE_ROOK_RIGHT_CASTLING_FINAL_POSITION: ULong =
-    0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000100u
-private val BLACK_ROOK_LEFT_CASTLING_FINAL_POSITION: ULong =
-    0b00010000_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-private val BLACK_ROOK_RIGHT_CASTLING_FINAL_POSITION: ULong =
-    0b00000100_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
+private data class MoveLog(
+    val fromPiece: Piece,
+    val fromSquare: Int,
+    val toPiece: Piece,
+    val toSquare: Int,
+    val isEnPassant: Boolean,
+    val isLeftCastling: Boolean,
+    val isRightCastling: Boolean,
+    val halfMoveCounter: Int,
+    val epTargetSquare: ULong,
+    val castlingFlags: ULong,
+    val capturedPiece: Piece?
+)
 
 @ExperimentalStdlibApi
 @ExperimentalUnsignedTypes
-class Board {
+class Board : Copyable<Board> {
 
-    // @formatter:off
-    private var whiteKing: ULong    = 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00001000u
-    private var whiteQueens: ULong  = 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00010000u
-    private var whiteRooks: ULong   = 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_10000001u
-    private var whiteBishops: ULong = 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_00100100u
-    private var whiteKnights: ULong = 0b00000000_00000000_00000000_00000000_00000000_00000000_00000000_01000010u
-    private var whitePawns: ULong   = 0b00000000_00000000_00000000_00000000_00000000_00000000_11111111_00000000u
-
-    private var blackKing: ULong    = 0b00001000_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-    private var blackQueens: ULong  = 0b00010000_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-    private var blackRooks: ULong   = 0b10000001_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-    private var blackBishops: ULong = 0b00100100_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-    private var blackKnights: ULong = 0b01000010_00000000_00000000_00000000_00000000_00000000_00000000_00000000u
-    private var blackPawns: ULong   = 0b00000000_11111111_00000000_00000000_00000000_00000000_00000000_00000000u
-    // @formatter:on
+    private var whiteKing: ULong = 0uL
+    private var whiteQueens: ULong = 0uL
+    private var whiteRooks: ULong = 0uL
+    private var whiteBishops: ULong = 0uL
+    private var whiteKnights: ULong = 0uL
+    private var whitePawns: ULong = 0uL
+    private var blackKing: ULong = 0uL
+    private var blackQueens: ULong = 0uL
+    private var blackRooks: ULong = 0uL
+    private var blackBishops: ULong = 0uL
+    private var blackKnights: ULong = 0uL
+    private var blackPawns: ULong = 0uL
 
     private var sideToMove: Color = WHITE
     private var plyCounter: Int = 0
     private var halfMoveClock: Int = 0
     private var fullMoveCounter: Int = 0
     private var epTargetSquare: ULong = 0uL
-    private var whiteCastlingFlags = 0uL
-    private var blackCastlingFlags = 0uL
+    private var rookPositions: ULong = 0uL
+    private var castlingFlags = 0uL
+    private val moveLog = ArrayList<MoveLog>()
+
+    constructor() : this(FEN_INITIAL)
+
+    constructor(fen: String) {
+        setFen(FenString(fen))
+    }
+
+    constructor(initialize: Boolean) {
+        if (initialize) setFen(FEN_INITIAL)
+    }
+
+    fun setFen(fen: String): Unit = setFen(FenString(fen))
 
     fun getActivePieceLocations(): List<PieceLocation> = getPieceLocations2(sideToMove)
     fun getPieceLocations(): List<PieceLocation> = getPieceLocations2(BLACK) + getPieceLocations2(WHITE)
     fun getPieceLocations(color: Color): List<PieceLocation> = getPieceLocations2(color)
 
-    fun getActivePieceMovements(): Movements = getMovements2(sideToMove)
     fun getMovements(position: Position): Movements = getMovements(position.squareIndex)
     fun getMovements(color: Color): Movements = getMovements2(color)
-    fun getMovements(): Movements = getMovements2(WHITE) + getMovements2(BLACK)
-    fun getMovementRandom(): Movement = getActivePieceMovements().getRandomMovement()
+    fun getMovements(): Movements = getMovements2(sideToMove)
+    fun getMovementRandom(): Movement = getMovements2(sideToMove).getRandomMovement()
 
     fun moveRandom(): Unit = move(getMovementRandom())
-    fun move(movement: Movement): Unit = move(movement.from, movement.to, movement.toPiece, movement.flags)
+    fun move(movement: Movement) = move(movement.from, movement.to, movement.toPiece, movement.flags)
     fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
         val movement = getMovements(from.squareIndex)
             .asSequenceOfMovements()
+            .filter { it.to == to.squareIndex }
             .filter { !it.flags.isPromotion || it.toPiece.type == toPiece }
             .firstOrNull()
             ?: throw BoardException("can't find valid move from $from to $to")
         move(movement)
     }
 
-    fun undo(): Unit = TODO()
+    fun hasPreviousMove(): Boolean = moveLog.isNotEmpty()
+
+    fun undo() {
+        val log = moveLog.removeLast()
+
+        if (log.isLeftCastling || log.isRightCastling) {
+            val finalPositions = when (log.fromPiece.color) {
+                WHITE -> if (log.isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
+                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
+                BLACK -> if (log.isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
+                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
+            }
+
+            val kingDestination = if (log.isLeftCastling) finalPositions.countLeadingZeroBits()
+            else ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
+
+            val rookDestination = if (log.isLeftCastling) ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
+            else finalPositions.countLeadingZeroBits()
+
+            setBitBoardBit(log.fromPiece, kingDestination, false)
+            setBitBoardBit(log.fromPiece.getRook(), rookDestination, false)
+            setBitBoardBit(log.fromPiece, log.fromSquare, true)
+            setBitBoardBit(log.fromPiece.getRook(), log.toSquare, true)
+        } else {
+            setBitBoardBit(log.fromPiece, log.fromSquare, true)
+            setBitBoardBit(log.toPiece, log.toSquare, false)
+            if (log.isEnPassant) {
+                val enPassantCaptured = getEnPassantCapturedSquare(sideToMove.opposite, log.toSquare)
+                setBitBoardBit(log.capturedPiece!!, enPassantCaptured, true)
+            } else if (log.capturedPiece != null) {
+                setBitBoardBit(log.capturedPiece, log.toSquare, true)
+            }
+        }
+        halfMoveClock = log.halfMoveCounter
+        if (sideToMove.isWhite) fullMoveCounter--
+        plyCounter--
+        epTargetSquare = log.epTargetSquare
+        castlingFlags = log.castlingFlags
+        sideToMove = sideToMove.opposite
+    }
 
     override fun toString(): String {
         val pieceLocations = getPieceLocations()
@@ -389,43 +444,88 @@ class Board {
             }
     }
 
-    private fun getMovements(squareIndex: Int): Movements = getMovements(getPiece(squareIndex), squareIndex)
+    private fun setFen(fen: FenString) {
+        val fenInfo = fen.getFenInfo()
+        for (pieceLocation in fenInfo.piecesDisposition) {
+            setBitBoardBit(pieceLocation.piece, pieceLocation.position.squareIndex, true)
+        }
+        sideToMove = fenInfo.sideToMove
+        halfMoveClock = fenInfo.halfMoveClock
+        fullMoveCounter = fenInfo.fullMoveCounter
+        if (fenInfo.epTarget != null)
+            epTargetSquare = getSingleMaskBit(fenInfo.epTarget.squareIndex)
+
+        plyCounter = 0
+
+        castlingFlags = ZERO
+        rookPositions = ZERO
+
+        if (fenInfo.castlingFlags.leftWhiteRook != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.leftWhiteRook.squareIndex)
+            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.leftWhiteRook.squareIndex)
+        } else {
+            rookPositions = rookPositions or getMaskedSquare(Position.A1.squareIndex)
+        }
+
+        if (fenInfo.castlingFlags.rightWhiteRook != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.rightWhiteRook.squareIndex)
+            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.rightWhiteRook.squareIndex)
+        } else {
+            rookPositions = rookPositions or getMaskedSquare(Position.H1.squareIndex)
+        }
+
+        if (fenInfo.castlingFlags.leftBlackRook != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.leftBlackRook.squareIndex)
+            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.leftBlackRook.squareIndex)
+        } else {
+            rookPositions = rookPositions or getMaskedSquare(Position.A8.squareIndex)
+        }
+
+        if (fenInfo.castlingFlags.rightBlackRook != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.rightBlackRook.squareIndex)
+            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.rightBlackRook.squareIndex)
+        } else {
+            rookPositions = rookPositions or getMaskedSquare(Position.H8.squareIndex)
+        }
+    }
+
+    private fun getMovements(squareIndex: Int): Movements = Movements(
+        listOf(getMovements(getPiece(squareIndex), squareIndex))
+    )
 
     private fun getMovements2(color: Color): Movements {
-        var movements = Movements(emptyList())
+        val pieceMovements = ArrayList<PieceMovement>(24)
         when (color) {
             WHITE -> {
-                movements = movements + getMovements(WHITE_KING, whiteKing)
-                movements = movements + getMovements(WHITE_QUEEN, whiteQueens)
-                movements = movements + getMovements(WHITE_ROOK, whiteRooks)
-                movements = movements + getMovements(WHITE_BISHOP, whiteBishops)
-                movements = movements + getMovements(WHITE_KNIGHT, whiteKnights)
-                movements = movements + getMovements(WHITE_PAWN, whitePawns)
+                getMovements(WHITE_KING, whiteKing, pieceMovements)
+                getMovements(WHITE_QUEEN, whiteQueens, pieceMovements)
+                getMovements(WHITE_ROOK, whiteRooks, pieceMovements)
+                getMovements(WHITE_BISHOP, whiteBishops, pieceMovements)
+                getMovements(WHITE_KNIGHT, whiteKnights, pieceMovements)
+                getMovements(WHITE_PAWN, whitePawns, pieceMovements)
             }
             BLACK -> {
-                movements = movements + getMovements(BLACK_KING, blackKing)
-                movements = movements + getMovements(BLACK_QUEEN, blackQueens)
-                movements = movements + getMovements(BLACK_ROOK, blackRooks)
-                movements = movements + getMovements(BLACK_BISHOP, blackBishops)
-                movements = movements + getMovements(BLACK_KNIGHT, blackKnights)
-                movements = movements + getMovements(BLACK_PAWN, blackPawns)
+                getMovements(BLACK_KING, blackKing, pieceMovements)
+                getMovements(BLACK_QUEEN, blackQueens, pieceMovements)
+                getMovements(BLACK_ROOK, blackRooks, pieceMovements)
+                getMovements(BLACK_BISHOP, blackBishops, pieceMovements)
+                getMovements(BLACK_KNIGHT, blackKnights, pieceMovements)
+                getMovements(BLACK_PAWN, blackPawns, pieceMovements)
             }
         }
-        return movements
+        return Movements(pieceMovements)
     }
 
-    private fun getMovements(piece: Piece, pieceBitBoard: ULong): Movements {
+    private fun getMovements(piece: Piece, pieceBitBoard: ULong, pieceMovements: MutableList<PieceMovement>) {
         var bb = pieceBitBoard
-        var movements = Movements(emptyList())
         while (bb != ZERO) {
-            val squareIndex = bb.countLeadingZeroBits()
-            movements = movements + getMovements(piece, squareIndex)
-            bb = bb and FULL.shift(squareIndex + 1)
+            val fromSquare = bb.countLeadingZeroBits()
+            pieceMovements += getMovements(piece, fromSquare)
+            bb = bb and FULL.shift(fromSquare + 1)
         }
-        return movements
     }
 
-    private fun getMovements(piece: Piece, squareIndex: Int): Movements {
+    private fun getMovements(piece: Piece, squareIndex: Int): PieceMovement {
         val occupied = getOccupiedBitBoard(piece.color)
         return when (piece) {
             WHITE_KING -> getKingMovements(piece, squareIndex, occupied)
@@ -443,35 +543,133 @@ class Board {
         }
     }
 
-    private fun getKingMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
-        val targetSquares = KING_MOVE_MASK[squareIndex] and ownPieces.inv()
-        return mountNonPawnMovements(piece, squareIndex, targetSquares)
+    private inline fun getKingMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
+        val targetSquares = KING_MOVE_MASK[fromSquare] and ownPieces.inv()
+        val movementTargets = ArrayList<MovementTarget>()
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets)
+        getCastlingMovements(piece, fromSquare, movementTargets)
+        return PieceMovement(fromSquare, movementTargets)
     }
 
-    private fun getQueenMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
-        return getSlidingPieceMovements(piece, squareIndex, ownPieces)
+    private inline fun getCastlingMovements(
+        fromPiece: Piece,
+        fromSquare: Int,
+        targets: MutableList<MovementTarget>
+    ) {
+        val cFlags = when (fromPiece.color) {
+            WHITE -> castlingFlags and RANK_8.inv()
+            BLACK -> castlingFlags and RANK_1.inv()
+        }
+        val rPositions = when (fromPiece.color) {
+            WHITE -> rookPositions and RANK_8.inv()
+            BLACK -> rookPositions and RANK_1.inv()
+        }
+        val leftRookStartPosition = rPositions.countLeadingZeroBits()
+        if (cFlags and getMaskedSquare(leftRookStartPosition) != ZERO) {
+            val kingRookFinalPositions = when (fromPiece.color) {
+                WHITE -> LEFT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
+                BLACK -> LEFT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
+            }
+            getCastlingMovements(
+                fromPiece,
+                fromSquare,
+                kingRookFinalPositions.countLeadingZeroBits(),
+                leftRookStartPosition,
+                ULong.SIZE_BITS - kingRookFinalPositions.countTrailingZeroBits() - 1,
+                true,
+                false,
+                targets
+            )
+        }
+        val rightRookStartPosition = ULong.SIZE_BITS - rPositions.countTrailingZeroBits() - 1
+        if (cFlags and getMaskedSquare(rightRookStartPosition) != ZERO) {
+            val kingRookFinalPositions = when (fromPiece.color) {
+                WHITE -> RIGHT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
+                BLACK -> RIGHT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
+            }
+            getCastlingMovements(
+                fromPiece,
+                fromSquare,
+                ULong.SIZE_BITS - kingRookFinalPositions.countTrailingZeroBits() - 1,
+                rightRookStartPosition,
+                kingRookFinalPositions.countLeadingZeroBits(),
+                false,
+                true,
+                targets
+            )
+        }
     }
 
-    private fun getRookMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
-        return getSlidingPieceMovements(piece, squareIndex, ownPieces)
+    private inline fun getCastlingMovements(
+        king: Piece,
+        kingFromSquare: Int,
+        kingFinalSquare: Int,
+        rookFromSquare: Int,
+        rookFinalSquare: Int,
+        isLeftCastling: Boolean,
+        isRightCastling: Boolean,
+        targets: MutableList<MovementTarget>
+    ) {
+        if (isSquareAttacked(kingFromSquare, king.color.opposite)) return
+        val kingMoveDirection = if (kingFromSquare < kingFinalSquare) 1 else -1
+        var kingPathSquare = kingFromSquare
+        val occupied = getOccupiedBitBoard() and (getPieceBitBoard(king.getRook()) or getPieceBitBoard(king)).inv()
+        do {
+            kingPathSquare += kingMoveDirection
+            if (isSquareAttacked(kingPathSquare, king.color.opposite)) return
+            if (occupied and getMaskedSquare(kingPathSquare) != ZERO) return
+        } while (kingPathSquare != kingFinalSquare)
+        val rookMoveDirection = if (rookFromSquare < rookFinalSquare) 1 else -1
+        var rookPathSquare = rookFromSquare
+        do {
+            rookPathSquare += rookMoveDirection
+            if (occupied and getSingleMaskBit(rookPathSquare) != ZERO) return
+        } while (rookPathSquare != rookFinalSquare)
+        var flags = MovementFlags.CASTLING_MASK
+        if (isLeftCastling) flags = flags or LEFT_CASTLING_MASK
+        if (isRightCastling) flags = flags or RIGHT_CASTLING_MASK
+        targets += MovementTarget(
+            king,
+            rookFromSquare,
+            MovementFlags(flags)
+        )
     }
 
-    private fun getBishopMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
-        return getSlidingPieceMovements(piece, squareIndex, ownPieces)
+    private inline fun getQueenMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
+        val movementTargets = ArrayList<MovementTarget>()
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets)
+        return PieceMovement(fromSquare, movementTargets)
     }
 
-    private fun getSlidingPieceMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
-        val targetSquares = getSlidingPieceTargetSquares(piece, squareIndex, ownPieces)
-        return mountNonPawnMovements(piece, squareIndex, targetSquares)
+    private inline fun getRookMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
+        val movementTargets = ArrayList<MovementTarget>()
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets)
+        return PieceMovement(fromSquare, movementTargets)
     }
 
-    private fun getSlidingPieceTargetSquares(piece: Piece, squareIndex: Int, ownPieces: ULong): ULong {
+    private inline fun getBishopMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
+        val movementTargets = ArrayList<MovementTarget>()
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets)
+        return PieceMovement(fromSquare, movementTargets)
+    }
+
+    private fun getSlidingPieceMovements(
+        piece: Piece,
+        fromSquare: Int,
+        ownPieces: ULong,
+        movementTargets: ArrayList<MovementTarget>
+    ) {
+        val targetSquares = getSlidingPieceTargetSquares(piece, fromSquare, ownPieces)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets)
+    }
+
+    private fun getSlidingPieceTargetSquares(piece: Piece, fromSquare: Int, ownPieces: ULong): ULong {
         return when (piece.type) {
-            PieceType.ROOK -> getRookTargetSquares(squareIndex, ownPieces)
-            PieceType.BISHOP -> getBishopTargetSquares(squareIndex, ownPieces)
+            ROOK -> getRookTargetSquares(fromSquare, ownPieces)
+            BISHOP -> getBishopTargetSquares(fromSquare, ownPieces)
             QUEEN -> {
-                val rookTargets = getRookTargetSquares(squareIndex, ownPieces)
-                val bishopTargets = getBishopTargetSquares(squareIndex, ownPieces)
+                val rookTargets = getRookTargetSquares(fromSquare, ownPieces)
+                val bishopTargets = getBishopTargetSquares(fromSquare, ownPieces)
                 rookTargets or bishopTargets
             }
             else -> throw BoardException("no sliding piece: $piece")
@@ -479,47 +677,49 @@ class Board {
     }
 
     private fun getRookTargetSquares(squareIndex: Int, ownPieces: ULong): ULong {
-        val blockers = ROOK_MOVE_MASK[squareIndex] and getOccupiedBitBoard()
+        val blockers = ROOK_MOVE_MASK[squareIndex] and (getOccupiedBitBoard())
         return ROOK_MOVEMENT_DATABASE[squareIndex]!![blockers]!! and ownPieces.inv()
     }
 
     private fun getBishopTargetSquares(squareIndex: Int, ownPieces: ULong): ULong {
-        val blockers = BISHOP_MOVE_MASK[squareIndex] and getOccupiedBitBoard()
+        val blockers = BISHOP_MOVE_MASK[squareIndex] and (getOccupiedBitBoard())
         return BISHOP_MOVEMENT_DATABASE[squareIndex]!![blockers]!! and ownPieces.inv()
     }
 
-    private fun getKnightMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
-        val targetSquares = KNIGHT_MOVE_MASK[squareIndex] and ownPieces.inv()
-        return mountNonPawnMovements(piece, squareIndex, targetSquares)
+    private inline fun getKnightMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
+        val targetSquares = KNIGHT_MOVE_MASK[fromSquare] and ownPieces.inv()
+        val movementTargets = ArrayList<MovementTarget>()
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets)
+        return PieceMovement(fromSquare, movementTargets)
     }
 
-    private fun getPawnMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
+    private inline fun getPawnMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
         return when (piece.color) {
-            WHITE -> getWhitePawnMovements(piece, squareIndex, ownPieces)
-            BLACK -> getBlackPawnMovements(piece, squareIndex, ownPieces)
+            WHITE -> getWhitePawnMovements(piece, fromSquare, ownPieces)
+            BLACK -> getBlackPawnMovements(piece, fromSquare, ownPieces)
         }
     }
 
-    private fun getWhitePawnMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
+    private fun getWhitePawnMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
         val targetSquares = getPawnTargetSquares(
             ownPieces,
             getOccupiedBitBoard(),
-            WHITE_PAWN_CAPTURE_MOVE_MASK[squareIndex],
-            WHITE_PAWN_SINGLE_MOVE_MASK[squareIndex],
-            WHITE_PAWN_DOUBLE_MOVE_MASK[squareIndex]
+            WHITE_PAWN_CAPTURE_MOVE_MASK[fromSquare],
+            WHITE_PAWN_SINGLE_MOVE_MASK[fromSquare],
+            WHITE_PAWN_DOUBLE_MOVE_MASK[fromSquare]
         )
-        return mountPawnMovements(piece, squareIndex, targetSquares)
+        return mountPawnMovements(piece, fromSquare, targetSquares)
     }
 
-    private fun getBlackPawnMovements(piece: Piece, squareIndex: Int, ownPieces: ULong): Movements {
+    private fun getBlackPawnMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
         val targetSquares = getPawnTargetSquares(
             ownPieces,
             getOccupiedBitBoard(),
-            BLACK_PAWN_CAPTURE_MOVE_MASK[squareIndex],
-            BLACK_PAWN_SINGLE_MOVE_MASK[squareIndex],
-            BLACK_PAWN_DOUBLE_MOVE_MASK[squareIndex]
+            BLACK_PAWN_CAPTURE_MOVE_MASK[fromSquare],
+            BLACK_PAWN_SINGLE_MOVE_MASK[fromSquare],
+            BLACK_PAWN_DOUBLE_MOVE_MASK[fromSquare]
         )
-        return mountPawnMovements(piece, squareIndex, targetSquares)
+        return mountPawnMovements(piece, fromSquare, targetSquares)
     }
 
     private fun getPawnTargetSquares(
@@ -530,20 +730,22 @@ class Board {
         doubleSquareMoveMask: ULong
     ): ULong {
         var targetSquares = captureMask and (allPieces or epTargetSquare) and ownPieces.inv()
-        targetSquares = targetSquares or singleSquareMoveMask and allPieces.inv()
+        targetSquares = targetSquares or (singleSquareMoveMask xor allPieces).and(singleSquareMoveMask)
         if (doubleSquareMoveMask and allPieces == ZERO)
-            targetSquares = targetSquares or (singleSquareMoveMask xor doubleSquareMoveMask)
+            targetSquares = targetSquares or (doubleSquareMoveMask xor allPieces).and(doubleSquareMoveMask)
         return targetSquares
     }
 
-    private fun mountPawnMovements(pawn: Piece, fromSquare: Int, targetSquares: ULong): Movements {
+    private fun mountPawnMovements(pawn: Piece, fromSquare: Int, targetSquares: ULong): PieceMovement {
         var t = targetSquares
         val movementTargets = ArrayList<MovementTarget>()
         while (t != ZERO) {
             val toSquare = t.countLeadingZeroBits()
-            val enPassantCapturedSquare = getEnPassantCapturedSquare(pawn.color, toSquare)
-            val isEnpassant = isEmpty(enPassantCapturedSquare)
-            val isCapture = isEmpty(toSquare)
+            val isEnpassant = (
+                    (fromSquare - toSquare).absoluteValue == 9
+                            || (fromSquare - toSquare).absoluteValue == 7
+                    ) && isEmpty(toSquare)
+            val isCapture = isEnpassant || isNotEmpty(toSquare)
             if (
                 isMovementValid(
                     fromSquare,
@@ -553,10 +755,11 @@ class Board {
                     isCapture
                 )
             ) {
-                val isPromotion = (RANK_1 and RANK_8 and getMaskedSquare(toSquare)) != ZERO
+                val isPromotion = ((RANK_1 or RANK_8) and getMaskedSquare(toSquare)) != ZERO
                 var flags = 0uL
                 if (isEnpassant) flags = flags or MovementFlags.EN_PASSANT_MASK
                 if (isCapture) flags = flags or MovementFlags.CAPTURE_MASK
+                if (isPromotion) flags = flags or MovementFlags.PROMOTION_MASK
                 for (targetPiece in getPawnTargetPieces(pawn, isPromotion)) {
                     movementTargets += MovementTarget(
                         targetPiece,
@@ -567,7 +770,7 @@ class Board {
             }
             t = t and FULL.shift(toSquare + 1)
         }
-        return Movements(listOf(PieceMovement(fromSquare, movementTargets)))
+        return PieceMovement(fromSquare, movementTargets)
     }
 
     private fun getPawnTargetPieces(piece: Piece, isPromotion: Boolean): List<Piece> {
@@ -578,12 +781,16 @@ class Board {
         else listOf(piece)
     }
 
-    private fun mountNonPawnMovements(piece: Piece, fromIndex: Int, targetSquares: ULong): Movements {
+    private fun mountNonPawnMovements(
+        piece: Piece,
+        fromIndex: Int,
+        targetSquares: ULong,
+        movementTargets: ArrayList<MovementTarget>
+    ) {
         var s = targetSquares
-        val targets = ArrayList<MovementTarget>()
         while (s != EMPTY) {
             val toIndex = s.countLeadingZeroBits()
-            var isCapture = isEmpty(toIndex)
+            var isCapture = isNotEmpty(toIndex)
             if (
                 isMovementValid(
                     fromIndex,
@@ -595,7 +802,7 @@ class Board {
             ) {
                 var flags = ZERO
                 if (isCapture) flags = flags or MovementFlags.CAPTURE_MASK
-                targets += MovementTarget(
+                movementTargets += MovementTarget(
                     piece,
                     toIndex,
                     MovementFlags(flags)
@@ -603,14 +810,6 @@ class Board {
             }
             s = s and FULL.shift(toIndex + 1)
         }
-        return Movements(
-            listOf(
-                PieceMovement(
-                    fromIndex,
-                    targets
-                )
-            )
-        )
     }
 
     /**
@@ -627,36 +826,51 @@ class Board {
             fromSquare,
             toSquare,
             toPiece,
+            false,
+            false,
             isEnPassant,
             isCapture,
             false
         )
-        val isValid = when (toPiece.color) {
+
+        val isSquareAttacked = when (toPiece.color) {
             WHITE -> isSquareAttacked(whiteKing.countLeadingZeroBits(), BLACK)
             BLACK -> isSquareAttacked(blackKing.countLeadingZeroBits(), WHITE)
         }
         undo()
-        return isValid
+        return !isSquareAttacked
     }
 
-    private fun isSquareAttacked(squareIndex: Int, color: Color): Boolean {
+    private fun isSquareAttacked(fromSquare: Int, color: Color): Boolean {
         val occupied = getOccupiedBitBoard(color.opposite)
         val queenPositions = getPieceBitBoard(QUEEN, color)
+
         val rookPositions = getPieceBitBoard(ROOK, color)
-        val rookRays = getRookTargetSquares(squareIndex, occupied)
-        if (rookRays and (rookPositions and queenPositions) != ZERO) return true
+        val rookRays = getRookTargetSquares(fromSquare, occupied)
+        if (rookRays and (rookPositions or queenPositions) != ZERO) return true
 
         val bishopPositions = getPieceBitBoard(BISHOP, color)
-        val bishopRays = getBishopTargetSquares(squareIndex, occupied)
-        if (bishopRays and (bishopPositions and queenPositions) != ZERO) return true
+        val bishopRays = getBishopTargetSquares(fromSquare, occupied)
+        if (bishopRays and (bishopPositions or queenPositions) != ZERO) return true
 
-        return false
+        if (
+            KING_MOVE_MASK[fromSquare] and getPieceBitBoard(KING, color) != ZERO
+            || KNIGHT_MOVE_MASK[fromSquare] and getPieceBitBoard(KNIGHT, color) != ZERO
+        ) {
+            return true
+        }
+
+        return when (color) {
+            WHITE -> BLACK_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getPieceBitBoard(WHITE_PAWN) != ZERO
+            BLACK -> WHITE_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getPieceBitBoard(BLACK_PAWN) != ZERO
+        }
     }
 
-    private fun isEmpty(squareIndex: Int): Boolean = getOccupiedBitBoard() and getSingleMaskBit(squareIndex) != ZERO
+    private fun isEmpty(fromSquare: Int): Boolean = getOccupiedBitBoard() and getSingleMaskBit(fromSquare) == ZERO
+    private fun isNotEmpty(fromSquare: Int) = !isEmpty(fromSquare)
 
-    private fun getPiece(squareIndex: Int): Piece {
-        val maskedSquare = getMaskedSquare(squareIndex)
+    private fun getPiece(fromSquare: Int): Piece {
+        val maskedSquare = getMaskedSquare(fromSquare)
         return when {
             whiteKing and maskedSquare != ZERO -> WHITE_KING
             whiteQueens and maskedSquare != ZERO -> WHITE_QUEEN
@@ -670,7 +884,7 @@ class Board {
             blackBishops and maskedSquare != ZERO -> BLACK_BISHOP
             blackKnights and maskedSquare != ZERO -> BLACK_KNIGHT
             blackPawns and maskedSquare != ZERO -> BLACK_PAWN
-            else -> throw BoardException("empty square: ${Position.from(squareIndex)}")
+            else -> throw BoardException("empty square: ${Position.from(fromSquare)}")
         }
     }
 
@@ -753,7 +967,7 @@ class Board {
         return positions
     }
 
-    private fun getMaskedSquare(squareIndex: Int): ULong = HIGEST_BIT.shift(squareIndex)
+    private fun getMaskedSquare(fromSquare: Int): ULong = HIGEST_BIT.shift(fromSquare)
 
     private fun getOccupiedBitBoard(): ULong {
         return getOccupiedBitBoard(WHITE) or getOccupiedBitBoard(BLACK)
@@ -766,13 +980,15 @@ class Board {
         }
     }
 
-    private fun getSingleMaskBit(squareIndex: Int): ULong = HIGEST_BIT.shift(squareIndex)
+    private fun getSingleMaskBit(fromSquare: Int): ULong = HIGEST_BIT.shift(fromSquare)
 
     private fun move(fromSquare: Int, toSquare: Int, toPiece: Piece, flags: MovementFlags) {
         move(
             fromSquare,
             toSquare,
             toPiece,
+            flags.isLeftCastling,
+            flags.isRightCastling,
             flags.isEnPassant,
             flags.isCapture,
             flags.isPromotion
@@ -783,22 +999,90 @@ class Board {
         fromSquare: Int,
         toSquare: Int,
         toPiece: Piece,
+        isLeftCastling: Boolean,
+        isRightCastling: Boolean,
         isEnPassant: Boolean,
         isCapture: Boolean,
         isPromotion: Boolean
     ) {
-        val originPiece = if (isPromotion) toPiece.getPawn() else toPiece
+        val fromPiece = if (isPromotion) toPiece.getPawn() else toPiece
+        val enPassantCapturedSquare = getEnPassantCapturedSquare(toPiece.color, toSquare)
         val capturedPiece = when {
-            isEnPassant -> getPiece(getEnPassantCapturedSquare(toPiece.color, toSquare))
+            isEnPassant -> getPiece(enPassantCapturedSquare)
             isCapture -> getPiece(toSquare)
             else -> null
         }
 
-        setBitBoardBit(originPiece, fromSquare, false)
-        setBitBoardBit(toPiece, toSquare, true)
-        if (isEnPassant && capturedPiece != null)
-            setBitBoardBit(capturedPiece, getEnPassantCapturedSquare(toPiece.color, toSquare), false)
+        moveLog += MoveLog(
+            fromPiece,
+            fromSquare,
+            toPiece,
+            toSquare,
+            isEnPassant,
+            isLeftCastling,
+            isRightCastling,
+            halfMoveClock,
+            epTargetSquare,
+            castlingFlags,
+            capturedPiece
+        )
 
+        if (isLeftCastling || isRightCastling) {
+            val finalPositions = when (fromPiece.color) {
+                WHITE -> if (isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
+                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
+                BLACK -> if (isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
+                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
+            }
+
+            val kingDestination = if (isLeftCastling) finalPositions.countLeadingZeroBits()
+            else ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
+
+            val rookDestination = if (isLeftCastling) ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
+            else finalPositions.countLeadingZeroBits()
+
+            setBitBoardBit(fromPiece, kingDestination, true)
+            setBitBoardBit(fromPiece.getRook(), rookDestination, true)
+            setBitBoardBit(fromPiece, fromSquare, false)
+            setBitBoardBit(fromPiece.getRook(), toSquare, false)
+        } else {
+            setBitBoardBit(fromPiece, fromSquare, false)
+            setBitBoardBit(toPiece, toSquare, true)
+            if (capturedPiece != null) {
+                setBitBoardBit(
+                    capturedPiece,
+                    if (isEnPassant) enPassantCapturedSquare else toSquare,
+                    false
+                )
+            }
+        }
+
+        if (fromPiece.isKing) {
+            castlingFlags = when (fromPiece.color) {
+                WHITE -> castlingFlags and RANK_1.inv()
+                BLACK -> castlingFlags and RANK_8.inv()
+            }
+        } else if (fromPiece.isRook) {
+            castlingFlags = castlingFlags and getMaskedSquare(fromSquare).inv()
+        }
+        if (capturedPiece != null && capturedPiece.isRook) {
+            castlingFlags = castlingFlags and getMaskedSquare(toSquare).inv()
+        }
+
+        epTargetSquare =
+            if (fromPiece.isPawn && (fromSquare - toSquare).absoluteValue == 16)
+                when (fromPiece.color) {
+                    WHITE -> WHITE_PAWN_SINGLE_MOVE_MASK[fromSquare]
+                    BLACK -> BLACK_PAWN_SINGLE_MOVE_MASK[fromSquare]
+                }
+            else EMPTY
+
+        halfMoveClock = if (fromPiece.isPawn || isCapture) halfMoveClock + 1
+        else 0
+
+        if (sideToMove.isBlack) fullMoveCounter++
+
+        plyCounter++
         sideToMove = sideToMove.opposite
     }
 
@@ -807,6 +1091,89 @@ class Board {
             WHITE -> toSquare + 8
             BLACK -> toSquare - 8
         }
+    }
+
+    override fun copy(): Board {
+        val copy = Board(false)
+
+        copy.whiteKing = whiteKing
+        copy.whiteQueens = whiteQueens
+        copy.whiteRooks = whiteRooks
+        copy.whiteBishops = whiteBishops
+        copy.whiteKnights = whiteKnights
+        copy.whitePawns = whitePawns
+        copy.blackKing = blackKing
+        copy.blackQueens = blackQueens
+        copy.blackRooks = blackRooks
+        copy.blackBishops = blackBishops
+        copy.blackKnights = blackKnights
+        copy.blackPawns = blackPawns
+
+        copy.sideToMove = sideToMove
+        copy.plyCounter = plyCounter
+        copy.halfMoveClock = halfMoveClock
+        copy.fullMoveCounter = fullMoveCounter
+        copy.epTargetSquare = epTargetSquare
+        copy.rookPositions = rookPositions
+        copy.castlingFlags = castlingFlags
+
+        copy.moveLog.addAll(moveLog)
+
+        return copy
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Board
+
+        if (whiteKing != other.whiteKing) return false
+        if (whiteQueens != other.whiteQueens) return false
+        if (whiteRooks != other.whiteRooks) return false
+        if (whiteBishops != other.whiteBishops) return false
+        if (whiteKnights != other.whiteKnights) return false
+        if (whitePawns != other.whitePawns) return false
+        if (blackKing != other.blackKing) return false
+        if (blackQueens != other.blackQueens) return false
+        if (blackRooks != other.blackRooks) return false
+        if (blackBishops != other.blackBishops) return false
+        if (blackKnights != other.blackKnights) return false
+        if (blackPawns != other.blackPawns) return false
+        if (sideToMove != other.sideToMove) return false
+        if (plyCounter != other.plyCounter) return false
+        if (halfMoveClock != other.halfMoveClock) return false
+        if (fullMoveCounter != other.fullMoveCounter) return false
+        if (epTargetSquare != other.epTargetSquare) return false
+        if (rookPositions != other.rookPositions) return false
+        if (castlingFlags != other.castlingFlags) return false
+        if (moveLog != other.moveLog) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = whiteKing.hashCode()
+        result = 31 * result + whiteQueens.hashCode()
+        result = 31 * result + whiteRooks.hashCode()
+        result = 31 * result + whiteBishops.hashCode()
+        result = 31 * result + whiteKnights.hashCode()
+        result = 31 * result + whitePawns.hashCode()
+        result = 31 * result + blackKing.hashCode()
+        result = 31 * result + blackQueens.hashCode()
+        result = 31 * result + blackRooks.hashCode()
+        result = 31 * result + blackBishops.hashCode()
+        result = 31 * result + blackKnights.hashCode()
+        result = 31 * result + blackPawns.hashCode()
+        result = 31 * result + sideToMove.hashCode()
+        result = 31 * result + plyCounter
+        result = 31 * result + halfMoveClock
+        result = 31 * result + fullMoveCounter
+        result = 31 * result + epTargetSquare.hashCode()
+        result = 31 * result + rookPositions.hashCode()
+        result = 31 * result + castlingFlags.hashCode()
+        result = 31 * result + moveLog.hashCode()
+        return result
     }
 
     companion object {
@@ -819,16 +1186,18 @@ class Board {
     }
 }
 
-@ExperimentalTime
+@ExperimentalUnsignedTypes
 @ExperimentalStdlibApi
 fun main() {
-    val board = Board()
-    println("intial board")
+    val board = Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
     println(board)
-    (1..30).forEach {
-        val movement = board.getMovementRandom()
-        println(movement)
-        board.move(movement)
-        println(board)
+    board.move(Position.E2, Position.A6)
+    println(board)
+    val movements = board.getMovements(Position.E8)
+    movements.forEachMovement {
+        println(it)
     }
+    println(board)
+//    board.move(Position.E8, Position.A8)
+//    println(board)
 }

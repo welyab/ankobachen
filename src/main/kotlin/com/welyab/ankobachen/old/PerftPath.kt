@@ -15,6 +15,7 @@
  */
 package com.welyab.ankobachen.old
 
+import com.welyab.ankobachen.PerftCalculator
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
@@ -71,8 +72,8 @@ class PerftResult private constructor(val fen: String, private val results: Map<
     ) {
         fun add(depth: Int, movementMetadata: MovementMetadata): Builder {
             map.computeIfAbsent(depth) { _ ->
-                    MovementMetadata.builder()
-                }
+                MovementMetadata.builder()
+            }
                 .add(movementMetadata)
             return this
         }
@@ -221,5 +222,22 @@ class PathEnumerator(
                 }
             }
         return sum
+    }
+}
+
+@ExperimentalTime
+@ExperimentalStdlibApi
+fun main() {
+    println("matrix array")
+    println("started")
+    measureTimedValue {
+        val calculator = PerftCalculator(
+            fen = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
+            deepth = 6
+        )
+        val result = calculator.getPerftResult()
+        println(result)
+    }.duration.apply {
+        println("duration: ${this.inSeconds}")
     }
 }

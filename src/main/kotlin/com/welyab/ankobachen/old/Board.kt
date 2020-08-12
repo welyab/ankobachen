@@ -367,7 +367,7 @@ class Board private constructor(
             var direction =
                 if (castlingInfo.rookStartPosition.column < castlingInfo.rookEndPosition.column) +1 else -1
             var distance = 1
-            if(castlingInfo.rookStartPosition != castlingInfo.rookEndPosition) {
+            if (castlingInfo.rookStartPosition != castlingInfo.rookEndPosition) {
                 do {
                     val currentRookPosition = Position.from(
                         castlingInfo.rookStartPosition.row,
@@ -878,18 +878,6 @@ class Board private constructor(
             }
 }
 
-fun main() {
-//    e8 -> d7=k, no flags
-//    e8 -> e7=k, no flags
-//    e8 -> d8=k, no flags
-//    e8 -> a8=k, castling
-    val board = Board("r3kbnr/1p3ppp/p1n1p3/2p5/P1B2PP1/2NP2P1/1PPB4/2KR3R b kq - 2 14")
-    val movements = board.getMovements(Position.E8)
-    movements.forEachDestination {
-        println(it)
-    }
-}
-
 internal typealias MovementTemplate = ArrayList<Direction>
 
 internal val leftWhiteKingFinalCastlingPosition = Position.C1
@@ -1315,3 +1303,21 @@ private val blackPawnDoubleSquareMovementTemplate =
     arrayListOf(
         Direction(+2, +0)
     )
+
+fun main() {
+    val board = Board("r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1")
+    val movements = board.getMovements()
+    movements.forEachDestination {
+        board.move(it)
+        board.getMovements().forEachDestination { m ->
+            println(
+                "${it.getOrigin().position} -> ${it.getDestination().getTarget().position}=${
+                    it.getDestination().getTarget().piece
+                }, ${m.getOrigin().position} -> ${m.getDestination().getTarget().position}=${
+                    m.getDestination().getTarget().piece
+                }"
+            )
+        }
+        board.undo()
+    }
+}
