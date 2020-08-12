@@ -151,66 +151,90 @@ class PerftCalculator(
         if (perftResult != null) return
         val board = Board(fen)
         val builder = PerftResult.builder(fen)
-        val path = ArrayList<Movement>()
-        try {
-            walker(board, 1, builder, path)
-        } catch (e: Exception) {
-            println("path")
-            path.forEach {
-                println(it)
-            }
-            throw e
-        }
+        walker(board, 1, builder)
         perftResult = builder.builder()
     }
 
     private fun walker(
         board: Board,
         currentDepth: Int,
-        builder: PerftResult.Builder,
-        path: MutableList<Movement>
+        builder: PerftResult.Builder
     ) {
         val movements = board.getMovements()
         builder.add(currentDepth, movements.metadata)
         for (movement in movements) {
-            val copy = board.copy()
             board.move(movement)
-            path += movement
             if (currentDepth + 1 <= deepth) {
-                walker(board, currentDepth + 1, builder, path)
+                walker(board, currentDepth + 1, builder)
             }
-            val backup = board.toString()
             board.undo()
-            if(copy != board) {
-                path.forEach {
-                    println(it)
-                }
-                println("before movement")
-                println(copy)
-                println("in movement")
-                println(backup)
-                println("after undo")
-                println(board)
-                System.exit(-1)
-            }
-            path.removeLast()
         }
+    }
+}
+
+@ExperimentalStdlibApi
+class PathEnumerator(
+    val fen: String,
+    val enumerationDepth: Int,
+    val depth: Int
+) {
+
+    fun enumerate() {
+        val board = Board(fen)
+        enumerate(board, 1, ArrayList())
+    }
+
+    private fun enumerate(board: Board, currentDepth: Int, path: ArrayList<Movement>) {
+        if (currentDepth > enumerationDepth) {
+            path.asSequence()
+                .map { "${it.fromPosition}${it.toPosition}" }
+                .reduce { s1, s2 -> "$s1 $s2" }
+                .apply { print(this) }
+            if (currentDepth <= depth) {
+                totalizeMovements(board, currentDepth).apply {
+                    print(" $this")
+                }
+            }
+            println()
+        } else {
+            board.getMovements().forEachMovement { pieceMovement ->
+                board.move(pieceMovement)
+                path += pieceMovement
+                enumerate(board, currentDepth + 1, path)
+                path.removeAt(path.lastIndex)
+                board.undo()
+            }
+        }
+    }
+
+    private fun totalizeMovements(board: Board, currentDepth: Int): Long {
+        var sum = 0L
+        board.getMovements()
+            .apply {
+                sum += metadata.nodesCount
+            }
+            .forEachMovement {
+                if (currentDepth + 1 <= depth) {
+                    board.move(it)
+                    sum += totalizeMovements(board, currentDepth + 1)
+                    board.undo()
+                }
+            }
+        return sum
     }
 }
 
 @ExperimentalTime
 @ExperimentalStdlibApi
 fun main() {
-    println("bitboard")
-    println("started")
     measureTimedValue {
         val calculator = PerftCalculator(
-            fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
-            deepth = 4
+            "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
+            6
         )
         val result = calculator.getPerftResult()
         println(result)
-    }.duration.apply {
-        println("duration: ${this.inSeconds}")
+    }.apply {
+        println("duration: ${this.duration.inSeconds} seconds")
     }
 }

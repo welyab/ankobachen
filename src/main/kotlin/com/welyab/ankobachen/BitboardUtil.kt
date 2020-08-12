@@ -395,14 +395,10 @@ object BitboardUtil {
         val list = ArrayList<ULong>()
         for (row in 0..7) {
             for (col in 0..7) {
-                if (row == 0 || row == 7) {
-                    list += 0uL
-                } else {
-                    val map = createBoard()
-                    (col - 1).takeIf { it >= 0 }?.let { map[row - 1][it] = 1 }
-                    (col + 1).takeIf { it <= 7 }?.let { map[row - 1][it] = 1 }
-                    list += map.toULong()
-                }
+                val map = createBoard()
+                Pair(row - 1, col - 1).takeIf { it.first >= 0 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
+                Pair(row - 1, col + 1).takeIf { it.first >= 0 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
+                list += map.toULong()
             }
         }
         return list
@@ -429,13 +425,9 @@ object BitboardUtil {
         val list = ArrayList<ULong>()
         for (row in 0..7) {
             for (col in 0..7) {
-                if (row == 0 || row == 7) {
-                    list += 0uL
-                } else {
-                    val map = createBoard()
-                    map[row + 1][col] = 1
-                    list += map.toULong()
-                }
+                val map = createBoard()
+                map[row + 1][col] = 1
+                list += map.toULong()
             }
         }
         return list
@@ -445,14 +437,10 @@ object BitboardUtil {
         val list = ArrayList<ULong>()
         for (row in 0..7) {
             for (col in 0..7) {
-                if (row == 0 || row == 7) {
-                    list += 0uL
-                } else {
-                    val map = createBoard()
-                    (col - 1).takeIf { it >= 0 }?.let { map[row + 1][it] = 1 }
-                    (col + 1).takeIf { it <= 7 }?.let { map[row + 1][it] = 1 }
-                    list += map.toULong()
-                }
+                val map = createBoard()
+                Pair(row + 1, col - 1).takeIf { it.first <= 7 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
+                Pair(row + 1, col + 1).takeIf { it.first <= 7 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
+                list += map.toULong()
             }
         }
         return list
@@ -485,33 +473,9 @@ private fun HashMap<Int, ULong>.getKey(value: ULong): Int =
 
 @ExperimentalTime
 fun main() {
-    // map[square index][blockers][movements]
-    val map = BitboardUtil.generateBishopMovementDatabase()
-
-    val movePatterns = map.values.flatMap { it.values }.distinct().sorted().toList()
-    val movePatternByIndex = HashMap<Int, ULong>()
-    movePatterns.forEachIndexed { index, value ->
-        movePatternByIndex[index] = value
-    }
-
-    println("wide totals = ${map.map { it.value.size }.asSequence().sum()}")
-    println("unique totals = ${movePatterns.size}")
-
-    map.asSequence()
-        .sortedBy { it.key }
-        .forEach { e ->
-            e.value.asSequence()
-                .sortedBy { it.key }
-                .forEach {
-                    println(
-                        "square = %s, blockers = %s, targets = %s, index = %s"
-                            .format(
-                                e.key,
-                                it.key.toHexString(),
-                                it.value.toHexString(),
-                                movePatternByIndex.getKey(it.value)
-                            )
-                    )
-                }
+    BitboardUtil.generateWhitePawnCaptureMovementMask().apply {
+        forEach {
+            println("0x${it.toHexString()}uL,")
         }
+    }
 }

@@ -221,6 +221,9 @@ class Movement(
     val toPiece: Piece,
     val flags: MovementFlags
 ) {
+    val fromPosition: Position get() = Position.from(from)
+    val toPosition: Position get() = Position.from(to)
+
     override fun toString(): String {
         return "${from.toPosition()} -> ${to.toPosition()} = $toPiece, $flags"
     }

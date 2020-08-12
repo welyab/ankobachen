@@ -34,11 +34,11 @@ import com.welyab.ankobachen.Piece.WHITE_ROOK
 import com.welyab.ankobachen.PieceType.BISHOP
 import com.welyab.ankobachen.PieceType.KING
 import com.welyab.ankobachen.PieceType.KNIGHT
+import com.welyab.ankobachen.PieceType.PAWN
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.extensions.shift
 import com.welyab.ankobachen.old.NEWLINE
-import java.util.stream.IntStream
 import kotlin.math.absoluteValue
 
 @ExperimentalUnsignedTypes
@@ -180,14 +180,14 @@ private val WHITE_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
     0x0000000014000000uL, 0x000000000a000000uL, 0x0000000005000000uL, 0x0000000002000000uL,
     0x0000000000400000uL, 0x0000000000a00000uL, 0x0000000000500000uL, 0x0000000000280000uL,
     0x0000000000140000uL, 0x00000000000a0000uL, 0x0000000000050000uL, 0x0000000000020000uL,
-    0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
-    0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL
+    0x0000000000004000uL, 0x000000000000a000uL, 0x0000000000005000uL, 0x0000000000002800uL,
+    0x0000000000001400uL, 0x0000000000000a00uL, 0x0000000000000500uL, 0x0000000000000200uL
 )
 
 @ExperimentalUnsignedTypes
 private val BLACK_PAWN_CAPTURE_MOVE_MASK = ulongArrayOf(
-    0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
-    0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+    0x0040000000000000uL, 0x00a0000000000000uL, 0x0050000000000000uL, 0x0028000000000000uL,
+    0x0014000000000000uL, 0x000a000000000000uL, 0x0005000000000000uL, 0x0002000000000000uL,
     0x0000400000000000uL, 0x0000a00000000000uL, 0x0000500000000000uL, 0x0000280000000000uL,
     0x0000140000000000uL, 0x00000a0000000000uL, 0x0000050000000000uL, 0x0000020000000000uL,
     0x0000004000000000uL, 0x000000a000000000uL, 0x0000005000000000uL, 0x0000002800000000uL,
@@ -376,6 +376,9 @@ class Board : Copyable<Board> {
         move(movement)
     }
 
+    fun isSquareAttacked(position: Position, attackerColor: Color): Boolean =
+        isSquareAttacked(position.squareIndex, attackerColor)
+
     fun hasPreviousMove(): Boolean = moveLog.isNotEmpty()
 
     fun undo() {
@@ -453,7 +456,7 @@ class Board : Copyable<Board> {
         halfMoveClock = fenInfo.halfMoveClock
         fullMoveCounter = fenInfo.fullMoveCounter
         if (fenInfo.epTarget != null)
-            epTargetSquare = getSingleMaskBit(fenInfo.epTarget.squareIndex)
+            epTargetSquare = getMaskedSquare(fenInfo.epTarget.squareIndex)
 
         plyCounter = 0
 
@@ -527,19 +530,13 @@ class Board : Copyable<Board> {
 
     private fun getMovements(piece: Piece, squareIndex: Int): PieceMovement {
         val occupied = getOccupiedBitBoard(piece.color)
-        return when (piece) {
-            WHITE_KING -> getKingMovements(piece, squareIndex, occupied)
-            WHITE_QUEEN -> getQueenMovements(piece, squareIndex, occupied)
-            WHITE_ROOK -> getRookMovements(piece, squareIndex, occupied)
-            WHITE_BISHOP -> getBishopMovements(piece, squareIndex, occupied)
-            WHITE_KNIGHT -> getKnightMovements(piece, squareIndex, occupied)
-            WHITE_PAWN -> getPawnMovements(piece, squareIndex, occupied)
-            BLACK_KING -> getKingMovements(piece, squareIndex, occupied)
-            BLACK_QUEEN -> getQueenMovements(piece, squareIndex, occupied)
-            BLACK_ROOK -> getRookMovements(piece, squareIndex, occupied)
-            BLACK_BISHOP -> getBishopMovements(piece, squareIndex, occupied)
-            BLACK_KNIGHT -> getKnightMovements(piece, squareIndex, occupied)
-            BLACK_PAWN -> getPawnMovements(piece, squareIndex, occupied)
+        return when (piece.type) {
+            KING -> getKingMovements(piece, squareIndex, occupied)
+            QUEEN -> getQueenMovements(piece, squareIndex, occupied)
+            ROOK -> getRookMovements(piece, squareIndex, occupied)
+            BISHOP -> getBishopMovements(piece, squareIndex, occupied)
+            KNIGHT -> getKnightMovements(piece, squareIndex, occupied)
+            PAWN -> getPawnMovements(piece, squareIndex, occupied)
         }
     }
 
@@ -623,7 +620,7 @@ class Board : Copyable<Board> {
         var rookPathSquare = rookFromSquare
         do {
             rookPathSquare += rookMoveDirection
-            if (occupied and getSingleMaskBit(rookPathSquare) != ZERO) return
+            if (occupied and getMaskedSquare(rookPathSquare) != ZERO) return
         } while (rookPathSquare != rookFinalSquare)
         var flags = MovementFlags.CASTLING_MASK
         if (isLeftCastling) flags = flags or LEFT_CASTLING_MASK
@@ -866,7 +863,7 @@ class Board : Copyable<Board> {
         }
     }
 
-    private fun isEmpty(fromSquare: Int): Boolean = getOccupiedBitBoard() and getSingleMaskBit(fromSquare) == ZERO
+    private fun isEmpty(fromSquare: Int): Boolean = getOccupiedBitBoard() and getMaskedSquare(fromSquare) == ZERO
     private fun isNotEmpty(fromSquare: Int) = !isEmpty(fromSquare)
 
     private fun getPiece(fromSquare: Int): Piece {
@@ -911,8 +908,8 @@ class Board : Copyable<Board> {
 
     private fun setBitBoardBit(piece: Piece, bitIndex: Int, value: Boolean) {
         var bitboard = getPieceBitBoard(piece)
-        bitboard = if (value) bitboard or getSingleMaskBit(bitIndex)
-        else bitboard and getSingleMaskBit(bitIndex).inv()
+        bitboard = if (value) bitboard or getMaskedSquare(bitIndex)
+        else bitboard and getMaskedSquare(bitIndex).inv()
         setBitBoard(piece, bitboard)
     }
 
@@ -979,8 +976,6 @@ class Board : Copyable<Board> {
             BLACK -> blackKing or blackQueens or blackRooks or blackBishops or blackKnights or blackPawns
         }
     }
-
-    private fun getSingleMaskBit(fromSquare: Int): ULong = HIGEST_BIT.shift(fromSquare)
 
     private fun move(fromSquare: Int, toSquare: Int, toPiece: Piece, flags: MovementFlags) {
         move(
@@ -1180,24 +1175,7 @@ class Board : Copyable<Board> {
         private const val ZERO: ULong = 0u
         private const val EMPTY: ULong = ZERO
         private const val FULL: ULong = ULong.MAX_VALUE
-
-        // 0b1000000 ... 0000000uL
         private const val HIGEST_BIT = 0x8000000000000000uL
     }
 }
 
-@ExperimentalUnsignedTypes
-@ExperimentalStdlibApi
-fun main() {
-    val board = Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
-    println(board)
-    board.move(Position.E2, Position.A6)
-    println(board)
-    val movements = board.getMovements(Position.E8)
-    movements.forEachMovement {
-        println(it)
-    }
-    println(board)
-//    board.move(Position.E8, Position.A8)
-//    println(board)
-}

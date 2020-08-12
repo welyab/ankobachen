@@ -170,11 +170,14 @@ class PerftCalculator(
     }
 }
 
+
+@ExperimentalStdlibApi
 class PathEnumerator(
     val fen: String,
     val enumerationDepth: Int,
     val depth: Int
 ) {
+
     fun enumerate() {
         val board = Board(fen)
         enumerate(board, 1, ArrayList())
@@ -196,11 +199,6 @@ class PathEnumerator(
             board.getMovements().forEachDestination { pieceMovement ->
                 board.move(pieceMovement)
                 path += pieceMovement
-
-                if (currentDepth + 1 > enumerationDepth && pieceMovement.getFlags().isDiscovery()) {
-                    println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-                }
-
                 enumerate(board, currentDepth + 1, path)
                 path.removeAt(path.lastIndex)
                 board.undo()
@@ -228,16 +226,10 @@ class PathEnumerator(
 @ExperimentalTime
 @ExperimentalStdlibApi
 fun main() {
-    println("matrix array")
-    println("started")
-    measureTimedValue {
-        val calculator = PerftCalculator(
-            fen = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -",
-            deepth = 6
-        )
-        val result = calculator.getPerftResult()
-        println(result)
-    }.duration.apply {
-        println("duration: ${this.inSeconds}")
-    }
+    val enumerator = PathEnumerator(
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+        3,
+        3
+    )
+    enumerator.enumerate()
 }
