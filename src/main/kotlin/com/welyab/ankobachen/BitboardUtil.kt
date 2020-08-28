@@ -16,6 +16,7 @@
 package com.welyab.ankobachen
 
 import com.welyab.ankobachen.extensions.getNumericValue
+import com.welyab.ankobachen.extensions.shift
 import com.welyab.ankobachen.extensions.toBinaryString
 import kotlin.ULong
 import kotlin.ULong as Blockers
@@ -245,6 +246,109 @@ object BitboardUtil {
 
     fun getBlackPawnDoubleMoveMask() = BLACK_PAWN_DOUBLE_MOVE_MASK
 
+    private val ROOK_MAGICS = listOf(
+        0x0040003402410286uL, 0x4086023048010084uL, 0x0041000208040001uL, 0x0022002004100902uL,
+        0x40045000200d0129uL, 0x0000081020004101uL, 0x102b001022804001uL, 0x00044a1200802102uL,
+        0x00300c0505a84200uL, 0x2000100102080400uL, 0x0001041020400801uL, 0x0008000400800880uL,
+        0x00d0000804004040uL, 0x0020004012210300uL, 0x00201008400124c0uL, 0x0140082240800180uL,
+        0x012a040040820001uL, 0x012008b042040001uL, 0x1206001004020008uL, 0x4005004800050010uL,
+        0x0000420020120008uL, 0x000040a001030050uL, 0x0c10004020084008uL, 0x4080004020004002uL,
+        0x5010008402000061uL, 0x2830022104004810uL, 0x0842006812001004uL, 0x0400041101000800uL,
+        0x0010000800801081uL, 0x0000402001001100uL, 0x0140008040802004uL, 0x4800400020800084uL,
+        0x0020008200040041uL, 0x0880018400020810uL, 0x2002000200100409uL, 0x6240080100041100uL,
+        0x00e40c2100100100uL, 0x4005001100200440uL, 0x0000208200410a00uL, 0x2080004040002008uL,
+        0x0004120018490084uL, 0x0000040002100108uL, 0x6109010008040002uL, 0x2804008008000480uL,
+        0x0008008008100680uL, 0x0202020020441080uL, 0x1910084008200042uL, 0x0080004000200044uL,
+        0x1505002041860900uL, 0x0402000108040200uL, 0x2802001002000408uL, 0x0802000810200600uL,
+        0x4011000810010020uL, 0x0001002000104100uL, 0x0029002040010082uL, 0x0002002100420080uL,
+        0x01000c4122820100uL, 0x2300108200040100uL, 0x2900010002082400uL, 0x02800c0008001281uL,
+        0x0100100100082004uL, 0x0200084200102080uL, 0x0240001000402001uL, 0x0580005021400080uL
+    )
+
+    fun getRookMagics() = ROOK_MAGICS
+
+    private val BISHOP_MAGICS = listOf(
+        0x00042c0802440084uL, 0x4000208801c10400uL, 0x0100008810012200uL, 0x6000002209112400uL,
+        0x020c020008420200uL, 0x4d00540206011120uL, 0x0010008048080400uL, 0x204042481409200auL,
+        0x0242441104010000uL, 0x00505009014c0080uL, 0x104028a808482000uL, 0x2018002120410210uL,
+        0x0100004042020200uL, 0x0020590441107044uL, 0x11124422011002e4uL, 0x2080410450404040uL,
+        0x0042424407001020uL, 0x0522048404140181uL, 0x0840100400402820uL, 0x2000420204100200uL,
+        0x050000c010401200uL, 0x0000120309021000uL, 0x0002011920421820uL, 0x0102121040180480uL,
+        0x600814a024010300uL, 0x1208210406210080uL, 0x0201080600902200uL, 0x0020009004050040uL,
+        0x0400601108080080uL, 0x0d01008a44880800uL, 0x042401a014440404uL, 0x140108a000c02402uL,
+        0x000a120010210101uL, 0x500206a000441000uL, 0x049003000082410duL, 0x0003001003004000uL,
+        0x0001080044004090uL, 0x00480404580224a8uL, 0x00901420300400a2uL, 0x00042406202004c5uL,
+        0x0001401100525002uL, 0x1820602508080400uL, 0x0120209410080800uL, 0x0002009402510000uL,
+        0x4008008c01202300uL, 0x48a802100090200buL, 0x11a4410208482100uL, 0x080408c809480801uL,
+        0x000c010c02220280uL, 0x10c1040402080440uL, 0x4000084110900600uL, 0x0010040420402000uL,
+        0x0104082040406a05uL, 0x2200088801002401uL, 0x0001042820810a00uL, 0x040a28e111020200uL,
+        0x0080240200842005uL, 0x0344040a52100002uL, 0x00010420452a2040uL, 0x0401104002080040uL,
+        0x4628048500400086uL, 0x1004412401050400uL, 0x1010024801252042uL, 0x0088508100510200uL
+    )
+
+    fun getBishopMagics() = BISHOP_MAGICS
+
+    private val ROOK_MAGIC_INDEX_BITS = listOf(
+        12, 11, 11, 11, 11, 11, 11, 12,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        12, 11, 11, 11, 11, 11, 11, 12
+    )
+
+    fun getRookMagicIndexBits() = ROOK_MAGIC_INDEX_BITS
+
+    private val BISHOP_MAGIC_INDEX_BITS = listOf(
+        6, 5, 5, 5, 5, 5, 5, 6,
+        5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 7, 7, 7, 7, 5, 5,
+        5, 5, 7, 9, 9, 7, 5, 5,
+        5, 5, 7, 9, 9, 7, 5, 5,
+        5, 5, 7, 7, 7, 7, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5,
+        6, 5, 5, 5, 5, 5, 5, 6
+    )
+
+    fun getBishopMagicIndexBits() = BISHOP_MAGIC_INDEX_BITS
+
+    fun getRookMovementDatabase(): List<List<ULong>> {
+        return getSlidingPieceMovementDatabase(
+            getRookMovementMap(),
+            ROOK_MAGICS,
+            ROOK_MAGIC_INDEX_BITS
+        )
+    }
+
+    fun getBishopMovementDatabase(): List<List<ULong>> {
+        return getSlidingPieceMovementDatabase(
+            getBishopMovementMap(),
+            BISHOP_MAGICS,
+            BISHOP_MAGIC_INDEX_BITS
+        )
+    }
+
+    private fun getSlidingPieceMovementDatabase(
+        movementDatabase: Map<Int, Map<Blockers, Movements>>,
+        magics: List<ULong>,
+        magicIndexBits: List<Int>
+    ): List<List<ULong>> {
+        return (0..63)
+            .asSequence()
+            .map { squareIndex ->
+                (movementDatabase[squareIndex] ?: error("no entry of $squareIndex"))
+                    .asSequence()
+                    .map { it.key * magics[squareIndex] to it.value }
+                    .map { it.first.shift(64 - magicIndexBits[squareIndex]) to it.second }
+                    .sortedBy { it.first }
+                    .map { it.second }
+                    .toList()
+            }
+            .toList()
+    }
+
     private fun createBoard(value: ULong = 0uL): Array<Array<Int>> {
         val map = arrayOf(
             arrayOf(0, 0, 0, 0, 0, 0, 0, 0),
@@ -291,52 +395,7 @@ object BitboardUtil {
         }
     }
 
-    fun generateBishopMovementDatabase(): Map<Int, Map<Blockers, Movements>> {
-        val db = HashMap<Int, HashMap<Blockers, Movements>>()
-        BISHOP_MOVE_MASK.forEachIndexed { squareIndex, movementMask ->
-            getPermutations(movementMask).forEach { maskedBlockers ->
-                val position = Position.from(squareIndex)
-                val blockers = createBoard(maskedBlockers)
-                val movements = createBoard(0uL)
-                // up left
-                for (i in 1..7) {
-                    val row = position.row - i
-                    val column = position.column - i
-                    if (row < 0 || column < 0) break
-                    movements[row][column] = 1
-                    if (blockers[row][column] == 1) break
-                }
-                // up right
-                for (i in 1..7) {
-                    val row = position.row - i
-                    val column = position.column + i
-                    if (row < 0 || column > 7) break
-                    movements[row][column] = 1
-                    if (blockers[row][column] == 1) break
-                }
-                // down left
-                for (i in 1..7) {
-                    val row = position.row + i
-                    val column = position.column - i
-                    if (row > 7 || column < 0) break
-                    movements[row][column] = 1
-                    if (blockers[row][column] == 1) break
-                }
-                // down right
-                for (i in 1..7) {
-                    val row = position.row + i
-                    val column = position.column + i
-                    if (row > 7 || column > 7) break
-                    movements[row][column] = 1
-                    if (blockers[row][column] == 1) break
-                }
-                db.computeIfAbsent(squareIndex) { HashMap() }[blockers.toULong()] = movements.toULong()
-            }
-        }
-        return db
-    }
-
-    fun generateRookMovementDatabase(): Map<Int, Map<Blockers, Movements>> {
+   private  fun getRookMovementMap(): Map<Int, Map<Blockers, Movements>> {
         val db = HashMap<Int, HashMap<Blockers, Movements>>()
         ROOK_MOVE_MASK.forEachIndexed { squareIndex, movementMask ->
             getPermutations(movementMask).forEach { maskedBlockers ->
@@ -376,6 +435,51 @@ object BitboardUtil {
                     if (blockers[position.row][x] == 1) break
                 }
 
+                db.computeIfAbsent(squareIndex) { HashMap() }[blockers.toULong()] = movements.toULong()
+            }
+        }
+        return db
+    }
+
+    private fun getBishopMovementMap(): Map<Int, Map<Blockers, Movements>> {
+        val db = HashMap<Int, HashMap<Blockers, Movements>>()
+        BISHOP_MOVE_MASK.forEachIndexed { squareIndex, movementMask ->
+            getPermutations(movementMask).forEach { maskedBlockers ->
+                val position = Position.from(squareIndex)
+                val blockers = createBoard(maskedBlockers)
+                val movements = createBoard(0uL)
+                // up left
+                for (i in 1..7) {
+                    val row = position.row - i
+                    val column = position.column - i
+                    if (row < 0 || column < 0) break
+                    movements[row][column] = 1
+                    if (blockers[row][column] == 1) break
+                }
+                // up right
+                for (i in 1..7) {
+                    val row = position.row - i
+                    val column = position.column + i
+                    if (row < 0 || column > 7) break
+                    movements[row][column] = 1
+                    if (blockers[row][column] == 1) break
+                }
+                // down left
+                for (i in 1..7) {
+                    val row = position.row + i
+                    val column = position.column - i
+                    if (row > 7 || column < 0) break
+                    movements[row][column] = 1
+                    if (blockers[row][column] == 1) break
+                }
+                // down right
+                for (i in 1..7) {
+                    val row = position.row + i
+                    val column = position.column + i
+                    if (row > 7 || column > 7) break
+                    movements[row][column] = 1
+                    if (blockers[row][column] == 1) break
+                }
                 db.computeIfAbsent(squareIndex) { HashMap() }[blockers.toULong()] = movements.toULong()
             }
         }

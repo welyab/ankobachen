@@ -15,6 +15,22 @@
  */
 package com.welyab.ankobachen
 
+import com.welyab.ankobachen.BitboardUtil.getBishopMagicIndexBits
+import com.welyab.ankobachen.BitboardUtil.getBishopMagics
+import com.welyab.ankobachen.BitboardUtil.getBishopMoveMask
+import com.welyab.ankobachen.BitboardUtil.getBishopMovementDatabase
+import com.welyab.ankobachen.BitboardUtil.getBlackPawnCaptureMoveMask
+import com.welyab.ankobachen.BitboardUtil.getBlackPawnDoubleMoveMask
+import com.welyab.ankobachen.BitboardUtil.getBlackPawnSingleMoveMask
+import com.welyab.ankobachen.BitboardUtil.getKingMoveMask
+import com.welyab.ankobachen.BitboardUtil.getKnightMoveMask
+import com.welyab.ankobachen.BitboardUtil.getRookMagicIndexBits
+import com.welyab.ankobachen.BitboardUtil.getRookMagics
+import com.welyab.ankobachen.BitboardUtil.getRookMoveMask
+import com.welyab.ankobachen.BitboardUtil.getRookMovementDatabase
+import com.welyab.ankobachen.BitboardUtil.getWhitePawnCaptureMoveMask
+import com.welyab.ankobachen.BitboardUtil.getWhitePawnDoubleMoveMask
+import com.welyab.ankobachen.BitboardUtil.getWhitePawnSingleMoveMask
 import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
 import com.welyab.ankobachen.MovementFlags.Companion.LEFT_CASTLING_MASK
@@ -424,13 +440,15 @@ class Board : Copyable<Board> {
     }
 
     private fun getRookTargetSquares(squareIndex: Int, ownPieces: ULong): ULong {
-        val blockers = ROOK_MOVE_MASK[squareIndex] and (getOccupiedBitBoard())
-        return ROOK_MOVEMENT_DATABASE[squareIndex]!![blockers]!! and ownPieces.inv()
+        val blockers = ROOK_MOVE_MASK[squareIndex] and getOccupiedBitBoard()
+        val key = (blockers * ROOK_MAGICS[squareIndex]).shift(64 - ROOK_MAGIC_INDEX_BITS[squareIndex])
+        return ROOK_MOVEMENT_DATABASE[squareIndex][key.toInt()] and ownPieces.inv()
     }
 
     private fun getBishopTargetSquares(squareIndex: Int, ownPieces: ULong): ULong {
-        val blockers = BISHOP_MOVE_MASK[squareIndex] and (getOccupiedBitBoard())
-        return BISHOP_MOVEMENT_DATABASE[squareIndex]!![blockers]!! and ownPieces.inv()
+        val blockers = BISHOP_MOVE_MASK[squareIndex] and getOccupiedBitBoard()
+        val key = (blockers * BISHOP_MAGICS[squareIndex]).shift(64 - BISHOP_MAGIC_INDEX_BITS[squareIndex])
+        return BISHOP_MOVEMENT_DATABASE[squareIndex][key.toInt()] and ownPieces.inv()
     }
 
     private fun getKnightMovements(piece: Piece, fromSquare: Int, ownPieces: ULong): PieceMovement {
@@ -926,18 +944,22 @@ class Board : Copyable<Board> {
         private const val FULL: ULong = ULong.MAX_VALUE
         private const val HIGHEST_BIT = 0x8000000000000000uL
 
-        private val KING_MOVE_MASK = BitboardUtil.getKingMoveMask().toULongArray()
-        private val ROOK_MOVE_MASK = BitboardUtil.getRookMoveMask().toULongArray()
-        private val BISHOP_MOVE_MASK = BitboardUtil.getBishopMoveMask().toULongArray()
-        private val KNIGHT_MOVE_MASK = BitboardUtil.getKnightMoveMask().toULongArray()
-        private val ROOK_MOVEMENT_DATABASE = BitboardUtil.generateRookMovementDatabase()
-        private val BISHOP_MOVEMENT_DATABASE = BitboardUtil.generateBishopMovementDatabase()
-        private val WHITE_PAWN_SINGLE_MOVE_MASK = BitboardUtil.getWhitePawnSingleMoveMask().toULongArray()
-        private val BLACK_PAWN_SINGLE_MOVE_MASK = BitboardUtil.getBlackPawnSingleMoveMask().toULongArray()
-        private val WHITE_PAWN_CAPTURE_MOVE_MASK = BitboardUtil.getWhitePawnCaptureMoveMask().toULongArray()
-        private val BLACK_PAWN_CAPTURE_MOVE_MASK = BitboardUtil.getBlackPawnCaptureMoveMask().toULongArray()
-        private val WHITE_PAWN_DOUBLE_MOVE_MASK = BitboardUtil.getWhitePawnDoubleMoveMask().toULongArray()
-        private val BLACK_PAWN_DOUBLE_MOVE_MASK = BitboardUtil.getBlackPawnDoubleMoveMask().toULongArray()
+        private val KING_MOVE_MASK = getKingMoveMask().toULongArray()
+        private val ROOK_MOVE_MASK = getRookMoveMask().toULongArray()
+        private val BISHOP_MOVE_MASK = getBishopMoveMask().toULongArray()
+        private val KNIGHT_MOVE_MASK = getKnightMoveMask().toULongArray()
+        private val ROOK_MOVEMENT_DATABASE = getRookMovementDatabase()
+        private val BISHOP_MOVEMENT_DATABASE = getBishopMovementDatabase()
+        private val WHITE_PAWN_SINGLE_MOVE_MASK = getWhitePawnSingleMoveMask().toULongArray()
+        private val BLACK_PAWN_SINGLE_MOVE_MASK = getBlackPawnSingleMoveMask().toULongArray()
+        private val WHITE_PAWN_CAPTURE_MOVE_MASK = getWhitePawnCaptureMoveMask().toULongArray()
+        private val BLACK_PAWN_CAPTURE_MOVE_MASK = getBlackPawnCaptureMoveMask().toULongArray()
+        private val WHITE_PAWN_DOUBLE_MOVE_MASK = getWhitePawnDoubleMoveMask().toULongArray()
+        private val BLACK_PAWN_DOUBLE_MOVE_MASK = getBlackPawnDoubleMoveMask().toULongArray()
+        private val ROOK_MAGICS = getRookMagics().toULongArray()
+        private val BISHOP_MAGICS = getBishopMagics().toULongArray()
+        private val ROOK_MAGIC_INDEX_BITS = getRookMagicIndexBits().toIntArray()
+        private val BISHOP_MAGIC_INDEX_BITS = getBishopMagicIndexBits().toIntArray()
         private val WHITE_PAWN_REPLACEMENTS = listOf(WHITE_QUEEN, WHITE_ROOK, WHITE_BISHOP, WHITE_KNIGHT)
         private val BLACK_PAWN_REPLACEMENTS = listOf(BLACK_QUEEN, BLACK_ROOK, BLACK_BISHOP, BLACK_KNIGHT)
         private val RANK_1 = 0x00000000000000ffuL
