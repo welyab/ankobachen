@@ -15,33 +15,14 @@
  */
 package com.welyab.ankobachen
 
-import com.welyab.ankobachen.BitboardUtil.toULong
 import com.welyab.ankobachen.extensions.getNumericValue
 import com.welyab.ankobachen.extensions.toBinaryString
-import com.welyab.ankobachen.extensions.toBinaryStringTable
-import com.welyab.ankobachen.extensions.toHexString
-import com.welyab.ankobachen.old.BOARD_SIZE
-import java.lang.Exception
 import kotlin.ULong
-import kotlin.time.ExperimentalTime
 import kotlin.ULong as Blockers
 import kotlin.ULong as Movements
 
+@ExperimentalUnsignedTypes
 object BitboardUtil {
-
-    val EMPTY = ULong.MIN_VALUE
-    val FULL = ULong.MAX_VALUE
-
-    val COLUMNS = listOf(
-        0x8080808080808080uL,
-        0x4040404040404040uL,
-        0x2020202020202020uL,
-        0x1010101010101010uL,
-        0x0808080808080808uL,
-        0x0404040404040404uL,
-        0x0202020202020202uL,
-        0x0101010101010101uL
-    )
 
     val ROWS = listOf(
         0xff00000000000000uL,
@@ -54,7 +35,7 @@ object BitboardUtil {
         0x00000000000000ffuL
     )
 
-    val KING_MOVE_MASK = listOf(
+    private val KING_MOVE_MASK = listOf(
         0x40c0000000000000uL, 0xa0e0000000000000uL, 0x5070000000000000uL, 0x2838000000000000uL,
         0x141c000000000000uL, 0x0a0e000000000000uL, 0x0507000000000000uL, 0x0203000000000000uL,
         0xc040c00000000000uL, 0xe0a0e00000000000uL, 0x7050700000000000uL, 0x3828380000000000uL,
@@ -73,7 +54,9 @@ object BitboardUtil {
         0x0000000000001c14uL, 0x0000000000000e0auL, 0x0000000000000705uL, 0x0000000000000302uL
     )
 
-    val ROOK_MOVE_MASK = listOf(
+    fun getKingMoveMask(): List<ULong> = KING_MOVE_MASK
+
+    private val ROOK_MOVE_MASK = listOf(
         0x7e80808080808000uL, 0x3e40404040404000uL, 0x5e20202020202000uL, 0x6e10101010101000uL,
         0x7608080808080800uL, 0x7a04040404040400uL, 0x7c02020202020200uL, 0x7e01010101010100uL,
         0x007e808080808000uL, 0x003e404040404000uL, 0x005e202020202000uL, 0x006e101010101000uL,
@@ -92,7 +75,9 @@ object BitboardUtil {
         0x0008080808080876uL, 0x000404040404047auL, 0x000202020202027cuL, 0x000101010101017euL
     )
 
-    val BISHOP_MOVE_MASK = listOf(
+    fun getRookMoveMask(): List<ULong> = ROOK_MOVE_MASK
+
+    private val BISHOP_MOVE_MASK = listOf(
         0x0040201008040200uL, 0x0020100804020000uL, 0x0050080402000000uL, 0x0028440200000000uL,
         0x0014224000000000uL, 0x000a102040000000uL, 0x0004081020400000uL, 0x0002040810204000uL,
         0x0000402010080400uL, 0x0000201008040200uL, 0x0000500804020000uL, 0x0000284402000000uL,
@@ -111,7 +96,9 @@ object BitboardUtil {
         0x0000000040221400uL, 0x0000004020100a00uL, 0x0000402010080400uL, 0x0040201008040200uL
     )
 
-    val KNIGHT_MOVE_MASK = listOf(
+    fun getBishopMoveMask(): List<ULong> = BISHOP_MOVE_MASK
+
+    private val KNIGHT_MOVE_MASK = listOf(
         0x0020400000000000uL, 0x0010a00000000000uL, 0x0088500000000000uL, 0x0044280000000000uL,
         0x0022140000000000uL, 0x00110a0000000000uL, 0x0008050000000000uL, 0x0004020000000000uL,
         0x2000204000000000uL, 0x100010a000000000uL, 0x8800885000000000uL, 0x4400442800000000uL,
@@ -130,54 +117,133 @@ object BitboardUtil {
         0x0000000000142200uL, 0x00000000000a1100uL, 0x0000000000050800uL, 0x0000000000020400uL
     )
 
-    fun generateRookMovementMasks(): List<ULong> {
-        val masks = ArrayList<ULong>()
-        for (row in 0 until 8) {
-            for (col in 0 until 8) {
-                val value = ROWS[row] xor COLUMNS[col]
-                masks += removeEdges(row, col, value)
-            }
-        }
-        return masks
-    }
+    fun getKnightMoveMask(): List<ULong> = KNIGHT_MOVE_MASK
 
-    fun generateKingMovementMasks(): List<ULong> {
-        val masks = ArrayList<ULong>()
-        for (row in 0 until 8) {
-            for (col in 0 until 8) {
-                val map = createBoard()
-                (row - 1).takeIf { it >= 0 }?.let { map[it][col] = 1 }
-                (row + 1).takeIf { it <= 7 }?.let { map[it][col] = 1 }
-                (col - 1).takeIf { it >= 0 }?.let { map[row][it] = 1 }
-                (col + 1).takeIf { it <= 7 }?.let { map[row][it] = 1 }
-                Pair(row - 1, col - 1).takeIf { it.first >= 0 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row - 1, col + 1).takeIf { it.first >= 0 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 1, col - 1).takeIf { it.first <= 7 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 1, col + 1).takeIf { it.first <= 7 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                masks += map.toULong()
-            }
-        }
-        return masks
-    }
+    private val WHITE_PAWN_SINGLE_MOVE_MASK = listOf(
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x8000000000000000uL, 0x4000000000000000uL, 0x2000000000000000uL, 0x1000000000000000uL,
+        0x0800000000000000uL, 0x0400000000000000uL, 0x0200000000000000uL, 0x0100000000000000uL,
+        0x0080000000000000uL, 0x0040000000000000uL, 0x0020000000000000uL, 0x0010000000000000uL,
+        0x0008000000000000uL, 0x0004000000000000uL, 0x0002000000000000uL, 0x0001000000000000uL,
+        0x0000800000000000uL, 0x0000400000000000uL, 0x0000200000000000uL, 0x0000100000000000uL,
+        0x0000080000000000uL, 0x0000040000000000uL, 0x0000020000000000uL, 0x0000010000000000uL,
+        0x0000008000000000uL, 0x0000004000000000uL, 0x0000002000000000uL, 0x0000001000000000uL,
+        0x0000000800000000uL, 0x0000000400000000uL, 0x0000000200000000uL, 0x0000000100000000uL,
+        0x0000000080000000uL, 0x0000000040000000uL, 0x0000000020000000uL, 0x0000000010000000uL,
+        0x0000000008000000uL, 0x0000000004000000uL, 0x0000000002000000uL, 0x0000000001000000uL,
+        0x0000000000800000uL, 0x0000000000400000uL, 0x0000000000200000uL, 0x0000000000100000uL,
+        0x0000000000080000uL, 0x0000000000040000uL, 0x0000000000020000uL, 0x0000000000010000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL
+    )
 
-    fun generateKnightMovementMasks(): List<ULong> {
-        val masks = ArrayList<ULong>()
-        for (row in 0 until 8) {
-            for (col in 0 until 8) {
-                val map = createBoard()
-                Pair(row - 2, col - 1).takeIf { it.first >= 0 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row - 2, col + 1).takeIf { it.first >= 0 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 2, col - 1).takeIf { it.first <= 7 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 2, col + 1).takeIf { it.first <= 7 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                Pair(row - 1, col - 2).takeIf { it.first >= 0 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 1, col - 2).takeIf { it.first <= 7 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row - 1, col + 2).takeIf { it.first >= 0 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 1, col + 2).takeIf { it.first <= 7 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                masks += map.toULong()
-            }
-        }
-        return masks
-    }
+    fun getWhitePawnSingleMoveMask() = WHITE_PAWN_SINGLE_MOVE_MASK
+
+    private val BLACK_PAWN_SINGLE_MOVE_MASK = listOf(
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000800000000000uL, 0x0000400000000000uL, 0x0000200000000000uL, 0x0000100000000000uL,
+        0x0000080000000000uL, 0x0000040000000000uL, 0x0000020000000000uL, 0x0000010000000000uL,
+        0x0000008000000000uL, 0x0000004000000000uL, 0x0000002000000000uL, 0x0000001000000000uL,
+        0x0000000800000000uL, 0x0000000400000000uL, 0x0000000200000000uL, 0x0000000100000000uL,
+        0x0000000080000000uL, 0x0000000040000000uL, 0x0000000020000000uL, 0x0000000010000000uL,
+        0x0000000008000000uL, 0x0000000004000000uL, 0x0000000002000000uL, 0x0000000001000000uL,
+        0x0000000000800000uL, 0x0000000000400000uL, 0x0000000000200000uL, 0x0000000000100000uL,
+        0x0000000000080000uL, 0x0000000000040000uL, 0x0000000000020000uL, 0x0000000000010000uL,
+        0x0000000000008000uL, 0x0000000000004000uL, 0x0000000000002000uL, 0x0000000000001000uL,
+        0x0000000000000800uL, 0x0000000000000400uL, 0x0000000000000200uL, 0x0000000000000100uL,
+        0x0000000000000080uL, 0x0000000000000040uL, 0x0000000000000020uL, 0x0000000000000010uL,
+        0x0000000000000008uL, 0x0000000000000004uL, 0x0000000000000002uL, 0x0000000000000001uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL
+    )
+
+    fun getBlackPawnSingleMoveMask() = BLACK_PAWN_SINGLE_MOVE_MASK
+
+    private val WHITE_PAWN_CAPTURE_MOVE_MASK = listOf(
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x4000000000000000uL, 0xa000000000000000uL, 0x5000000000000000uL, 0x2800000000000000uL,
+        0x1400000000000000uL, 0x0a00000000000000uL, 0x0500000000000000uL, 0x0200000000000000uL,
+        0x0040000000000000uL, 0x00a0000000000000uL, 0x0050000000000000uL, 0x0028000000000000uL,
+        0x0014000000000000uL, 0x000a000000000000uL, 0x0005000000000000uL, 0x0002000000000000uL,
+        0x0000400000000000uL, 0x0000a00000000000uL, 0x0000500000000000uL, 0x0000280000000000uL,
+        0x0000140000000000uL, 0x00000a0000000000uL, 0x0000050000000000uL, 0x0000020000000000uL,
+        0x0000004000000000uL, 0x000000a000000000uL, 0x0000005000000000uL, 0x0000002800000000uL,
+        0x0000001400000000uL, 0x0000000a00000000uL, 0x0000000500000000uL, 0x0000000200000000uL,
+        0x0000000040000000uL, 0x00000000a0000000uL, 0x0000000050000000uL, 0x0000000028000000uL,
+        0x0000000014000000uL, 0x000000000a000000uL, 0x0000000005000000uL, 0x0000000002000000uL,
+        0x0000000000400000uL, 0x0000000000a00000uL, 0x0000000000500000uL, 0x0000000000280000uL,
+        0x0000000000140000uL, 0x00000000000a0000uL, 0x0000000000050000uL, 0x0000000000020000uL,
+        0x0000000000004000uL, 0x000000000000a000uL, 0x0000000000005000uL, 0x0000000000002800uL,
+        0x0000000000001400uL, 0x0000000000000a00uL, 0x0000000000000500uL, 0x0000000000000200uL
+    )
+
+    fun getWhitePawnCaptureMoveMask() = WHITE_PAWN_CAPTURE_MOVE_MASK
+
+    private val BLACK_PAWN_CAPTURE_MOVE_MASK = listOf(
+        0x0040000000000000uL, 0x00a0000000000000uL, 0x0050000000000000uL, 0x0028000000000000uL,
+        0x0014000000000000uL, 0x000a000000000000uL, 0x0005000000000000uL, 0x0002000000000000uL,
+        0x0000400000000000uL, 0x0000a00000000000uL, 0x0000500000000000uL, 0x0000280000000000uL,
+        0x0000140000000000uL, 0x00000a0000000000uL, 0x0000050000000000uL, 0x0000020000000000uL,
+        0x0000004000000000uL, 0x000000a000000000uL, 0x0000005000000000uL, 0x0000002800000000uL,
+        0x0000001400000000uL, 0x0000000a00000000uL, 0x0000000500000000uL, 0x0000000200000000uL,
+        0x0000000040000000uL, 0x00000000a0000000uL, 0x0000000050000000uL, 0x0000000028000000uL,
+        0x0000000014000000uL, 0x000000000a000000uL, 0x0000000005000000uL, 0x0000000002000000uL,
+        0x0000000000400000uL, 0x0000000000a00000uL, 0x0000000000500000uL, 0x0000000000280000uL,
+        0x0000000000140000uL, 0x00000000000a0000uL, 0x0000000000050000uL, 0x0000000000020000uL,
+        0x0000000000004000uL, 0x000000000000a000uL, 0x0000000000005000uL, 0x0000000000002800uL,
+        0x0000000000001400uL, 0x0000000000000a00uL, 0x0000000000000500uL, 0x0000000000000200uL,
+        0x0000000000000040uL, 0x00000000000000a0uL, 0x0000000000000050uL, 0x0000000000000028uL,
+        0x0000000000000014uL, 0x000000000000000auL, 0x0000000000000005uL, 0x0000000000000002uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL
+    )
+
+    fun getBlackPawnCaptureMoveMask() = BLACK_PAWN_CAPTURE_MOVE_MASK
+
+    private val WHITE_PAWN_DOUBLE_MOVE_MASK = listOf(
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000080800000uL, 0x0000000040400000uL, 0x0000000020200000uL, 0x0000000010100000uL,
+        0x0000000008080000uL, 0x0000000004040000uL, 0x0000000002020000uL, 0x0000000001010000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL
+    )
+
+    fun getWhitePawnDoubleMoveMask() = WHITE_PAWN_DOUBLE_MOVE_MASK
+
+    private val BLACK_PAWN_DOUBLE_MOVE_MASK = listOf(
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000808000000000uL, 0x0000404000000000uL, 0x0000202000000000uL, 0x0000101000000000uL,
+        0x0000080800000000uL, 0x0000040400000000uL, 0x0000020200000000uL, 0x0000010100000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL,
+        0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL, 0x0000000000000000uL
+    )
+
+    fun getBlackPawnDoubleMoveMask() = BLACK_PAWN_DOUBLE_MOVE_MASK
 
     private fun createBoard(value: ULong = 0uL): Array<Array<Int>> {
         val map = arrayOf(
@@ -204,65 +270,6 @@ object BitboardUtil {
             .flatMap { it.asSequence() }.map { it.toString() }
             .joinToString(separator = "")
             .toULong(2)
-
-
-    fun generateBishopMovementMasks(): List<ULong> {
-        val masks = ArrayList<ULong>()
-        for (row in 0 until 8) {
-            for (col in 0 until 8) {
-                val map = createBoard()
-                for (i in 1..7) {
-                    val up = row - i
-                    val down = row + i
-                    val left = col - i
-                    val right = col + i
-                    // UP LEFT
-                    if (up >= 0 && left >= 0) {
-                        map[up][left] = 1
-                    }
-                    // UP RIGHT
-                    if (up >= 0 && right < 8) {
-                        map[up][right] = 1
-                    }
-                    // DOWN LEFT
-                    if (down < 8 && left >= 0) {
-                        map[down][left] = 1
-                    }
-                    // DOWN RIGHT
-                    if (down < 8 && right < 8) {
-                        map[down][right] = 1
-                    }
-                }
-                masks += removeEdges(row, col, map.toULong())
-            }
-        }
-
-        return masks
-    }
-
-    private fun removeEdges(row: Int, col: Int, value: ULong): ULong {
-        var temp = value
-
-        if (row == 0) {
-            temp = temp and ROWS.last().inv()
-        } else if (row == BOARD_SIZE - 1) {
-            temp = temp and ROWS.first().inv()
-        } else {
-            temp = temp and ROWS.last().inv()
-            temp = temp and ROWS.first().inv()
-        }
-
-        if (col == 0) {
-            temp = temp and COLUMNS.last().inv()
-        } else if (col == BOARD_SIZE - 1) {
-            temp = temp and COLUMNS.first().inv()
-        } else {
-            temp = temp and COLUMNS.last().inv()
-            temp = temp and COLUMNS.first().inv()
-        }
-
-        return temp
-    }
 
     private fun getPermutations(bits: ULong): List<ULong> {
         return HashSet<String>()
@@ -373,109 +380,5 @@ object BitboardUtil {
             }
         }
         return db
-    }
-
-    fun generateWhitePawnSingleMovementMask(): List<ULong> {
-        val list = ArrayList<ULong>()
-        for (row in 0..7) {
-            for (col in 0..7) {
-                if (row == 0 || row == 7) {
-                    list += 0uL
-                } else {
-                    val map = createBoard()
-                    map[row - 1][col] = 1
-                    list += map.toULong()
-                }
-            }
-        }
-        return list
-    }
-
-    fun generateWhitePawnCaptureMovementMask(): List<ULong> {
-        val list = ArrayList<ULong>()
-        for (row in 0..7) {
-            for (col in 0..7) {
-                val map = createBoard()
-                Pair(row - 1, col - 1).takeIf { it.first >= 0 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row - 1, col + 1).takeIf { it.first >= 0 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                list += map.toULong()
-            }
-        }
-        return list
-    }
-
-    fun generateWhitePawnDoubleMovementMask(): List<ULong> {
-        val list = ArrayList<ULong>()
-        for (row in 0..7) {
-            for (col in 0..7) {
-                if (row == 6) {
-                    val map = createBoard()
-                    map[row - 1][col] = 1
-                    map[row - 2][col] = 1
-                    list += map.toULong()
-                } else {
-                    list += 0uL
-                }
-            }
-        }
-        return list
-    }
-
-    fun generateBlackPawnSingleMovementMask(): List<ULong> {
-        val list = ArrayList<ULong>()
-        for (row in 0..7) {
-            for (col in 0..7) {
-                val map = createBoard()
-                map[row + 1][col] = 1
-                list += map.toULong()
-            }
-        }
-        return list
-    }
-
-    fun generateBlackPawnCaptureMovementMask(): List<ULong> {
-        val list = ArrayList<ULong>()
-        for (row in 0..7) {
-            for (col in 0..7) {
-                val map = createBoard()
-                Pair(row + 1, col - 1).takeIf { it.first <= 7 && it.second >= 0 }?.let { map[it.first][it.second] = 1 }
-                Pair(row + 1, col + 1).takeIf { it.first <= 7 && it.second <= 7 }?.let { map[it.first][it.second] = 1 }
-                list += map.toULong()
-            }
-        }
-        return list
-    }
-
-    fun generateBlackPawnDoubleMovementMask(): List<ULong> {
-        val list = ArrayList<ULong>()
-        for (row in 0..7) {
-            for (col in 0..7) {
-                if (row == 1) {
-                    val map = createBoard()
-                    map[row + 1][col] = 1
-                    map[row + 2][col] = 1
-                    list += map.toULong()
-                } else {
-                    list += 0uL
-                }
-            }
-        }
-        return list
-    }
-}
-
-private fun HashMap<Int, ULong>.getKey(value: ULong): Int =
-    asSequence()
-        .filter { it.value == value }
-        .map { it.key }
-        .firstOrNull()
-        ?: throw Exception("key not found")
-
-@ExperimentalTime
-fun main() {
-    BitboardUtil.generateWhitePawnCaptureMovementMask().apply {
-        forEach {
-            println("0x${it.toHexString()}uL,")
-        }
     }
 }
