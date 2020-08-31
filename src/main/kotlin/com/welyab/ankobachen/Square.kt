@@ -15,20 +15,6 @@
  */
 package com.welyab.ankobachen
 
-interface Square {
-    fun getPosition(): Position
-
-    fun getContent(): SquareContent<*>
-
-    fun getPiece(): Piece
-
-    fun isEmpty(): Boolean
-
-    fun isNotEmpty(): Boolean
-
-    fun contains(piece: Piece): Boolean
-}
-
 interface SquareContent<out T : SquareContent<T>> : Copyable<T> {
     val letter: Char
 
@@ -69,41 +55,7 @@ interface SquareContent<out T : SquareContent<T>> : Copyable<T> {
     fun isColorOf(color: Color): Boolean
 
     fun isPieceOf(piece: Piece): Boolean
-    fun isNotPieceof(piece: Piece): Boolean = !isPieceOf(piece)
+    fun isNotPieceOf(piece: Piece): Boolean = !isPieceOf(piece)
 
     fun asPiece(): Piece
-}
-
-object EmptySquareContent : SquareContent<EmptySquareContent> {
-    override val letter = ' '
-    override val isKing = false
-    override val isQueen = false
-    override val isRook = false
-    override val isBishop = false
-    override val isKnight = false
-    override val isPawn = false
-    override val isWhiteKing = false
-    override val isWhiteQueen = false
-    override val isWhiteRook = false
-    override val isWhiteBishop = false
-    override val isWhiteKnight = false
-    override val isWhitePawn = false
-    override val isBlackKing = false
-    override val isBlackQueen = false
-    override val isBlackRook = false
-    override val isBlackBishop = false
-    override val isBlackKnight = false
-    override val isBlackPawn = false
-    override val isWhite = false
-    override val isBlack = false
-    override val isEmpty = true
-    override val isNotEmpty = false
-
-    override fun isColorOf(color: Color) = false
-
-    override fun isPieceOf(piece: Piece) = false
-
-    override fun asPiece() = throw ChessException("Empty square content")
-
-    override fun copy() = this
 }
