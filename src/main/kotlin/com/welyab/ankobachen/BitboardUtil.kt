@@ -25,17 +25,6 @@ import kotlin.ULong as Movements
 @ExperimentalUnsignedTypes
 object BitboardUtil {
 
-    val ROWS = listOf(
-        0xff00000000000000uL,
-        0x00ff000000000000uL,
-        0x0000ff0000000000uL,
-        0x000000ff00000000uL,
-        0x00000000ff000000uL,
-        0x0000000000ff0000uL,
-        0x000000000000ff00uL,
-        0x00000000000000ffuL
-    )
-
     private val KING_MOVE_MASK = listOf(
         0x40c0000000000000uL, 0xa0e0000000000000uL, 0x5070000000000000uL, 0x2838000000000000uL,
         0x141c000000000000uL, 0x0a0e000000000000uL, 0x0507000000000000uL, 0x0203000000000000uL,

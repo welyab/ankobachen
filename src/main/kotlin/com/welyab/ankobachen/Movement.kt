@@ -285,6 +285,9 @@ class Movements(val origins: List<PieceMovement>) : Iterable<Movement> {
 
     val metadata: MovementMetadata = origins.summarizeMetadata()
 
+    fun isEmpty(): Boolean = metadata.nodesCount == 0L
+    fun isNotEmpty(): Boolean = !isEmpty()
+
     fun getOriginsCount(): Int {
         return origins.size
     }

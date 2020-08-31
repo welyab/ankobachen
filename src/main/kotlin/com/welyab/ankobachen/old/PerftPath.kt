@@ -226,10 +226,14 @@ class PathEnumerator(
 @ExperimentalTime
 @ExperimentalStdlibApi
 fun main() {
-    val enumerator = PathEnumerator(
-        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
-        3,
-        3
-    )
-    enumerator.enumerate()
+    measureTimedValue {
+        val calculator = com.welyab.ankobachen.old.PerftCalculator(
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+            4
+        )
+        val result = calculator.getPerftResult()
+        println(result)
+    }.apply {
+        println("duration: ${this.duration.inSeconds} seconds")
+    }
 }

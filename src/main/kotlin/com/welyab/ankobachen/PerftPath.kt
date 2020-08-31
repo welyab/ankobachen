@@ -151,22 +151,26 @@ class PerftCalculator(
         if (perftResult != null) return
         val board = Board(fen)
         val builder = PerftResult.builder(fen)
-        walker(board, 1, builder)
+        val path = ArrayList<Movement>()
+        walker(board, 1, builder, path)
         perftResult = builder.builder()
     }
 
     private fun walker(
         board: Board,
         currentDepth: Int,
-        builder: PerftResult.Builder
+        builder: PerftResult.Builder,
+        path: MutableList<Movement>
     ) {
         val movements = board.getMovements()
         builder.add(currentDepth, movements.metadata)
         for (movement in movements) {
             board.move(movement)
+            path += movement
             if (currentDepth + 1 <= deepth) {
-                walker(board, currentDepth + 1, builder)
+                walker(board, currentDepth + 1, builder, path)
             }
+            path.removeLast()
             board.undo()
         }
     }
@@ -227,10 +231,11 @@ class PathEnumerator(
 @ExperimentalTime
 @ExperimentalStdlibApi
 fun main() {
+    val b = Board()
     measureTimedValue {
         val calculator = PerftCalculator(
             "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
-            5
+            4
         )
         val result = calculator.getPerftResult()
         println(result)
