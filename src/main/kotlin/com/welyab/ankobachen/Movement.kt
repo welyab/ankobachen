@@ -13,11 +13,10 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+@file:Suppress("EXPERIMENTAL_UNSIGNED_LITERALS", "EXPERIMENTAL_API_USAGE")
+
 package com.welyab.ankobachen
 
-import kotlin.random.Random
-
-@ExperimentalUnsignedTypes
 class MovementFlags(val flags: ULong) {
 
     //@formatter:off
@@ -84,7 +83,8 @@ class MovementMetadata private constructor(
     val checkmateCount: Long,
     val stalemateCount: Long
 ) {
-    class Builder() {
+    @Suppress("MemberVisibilityCanBePrivate")
+    class Builder {
 
         private var nodesCount: Long = 0L
         private var captureCount: Long = 0L
@@ -214,7 +214,6 @@ class MovementMetadata private constructor(
 
 private fun Int.toPosition() = Position.from(this)
 
-@ExperimentalUnsignedTypes
 class Movement(
     val from: Int,
     val to: Int,
@@ -229,7 +228,6 @@ class Movement(
     }
 }
 
-@ExperimentalUnsignedTypes
 class MovementTarget(
     val piece: Piece,
     val to: Int,
@@ -240,7 +238,6 @@ class MovementTarget(
     }
 }
 
-@ExperimentalUnsignedTypes
 private fun List<MovementTarget>.summarizeFlags(): MovementMetadata {
     return MovementMetadata.builder().apply {
         this@summarizeFlags.forEach {
@@ -249,7 +246,7 @@ private fun List<MovementTarget>.summarizeFlags(): MovementMetadata {
     }.build()
 }
 
-@ExperimentalUnsignedTypes
+@Suppress("unused")
 class PieceMovement(
     val from: Int,
     val targets: List<MovementTarget>
@@ -271,7 +268,6 @@ class PieceMovement(
     }
 }
 
-@ExperimentalUnsignedTypes
 private fun List<PieceMovement>.summarizeMetadata(): MovementMetadata {
     return MovementMetadata.builder().apply {
         this@summarizeMetadata.forEach {
@@ -280,7 +276,7 @@ private fun List<PieceMovement>.summarizeMetadata(): MovementMetadata {
     }.build()
 }
 
-@ExperimentalUnsignedTypes
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 class Movements(val origins: List<PieceMovement>) : Iterable<Movement> {
 
     val metadata: MovementMetadata = origins.summarizeMetadata()
@@ -323,7 +319,7 @@ class Movements(val origins: List<PieceMovement>) : Iterable<Movement> {
     }
 
     fun getPieceMovement(index: Int): PieceMovement {
-        return origins.get(index)
+        return origins[index]
     }
 
     fun getRandomPieceMovement(): PieceMovement {

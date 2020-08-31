@@ -15,5 +15,7 @@
  */
 package com.welyab.ankobachen
 
-class Grid(pieceLocations: List<PieceLocation>) {
+enum class ChessVariant {
+    STANDARD,
+    CHESS960
 }

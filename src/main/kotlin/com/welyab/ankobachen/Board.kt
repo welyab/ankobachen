@@ -1120,6 +1120,10 @@ class Board : Copyable<Board> {
     }
 
     companion object {
+
+        @Suppress("SpellCheckingInspection")
+        const val FEN_INITIAL = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
         private const val ZERO: ULong = 0u
         private const val EMPTY: ULong = ZERO
         private const val FULL: ULong = ULong.MAX_VALUE

@@ -15,9 +15,6 @@
  */
 package com.welyab.ankobachen
 
-import kotlin.time.ExperimentalTime
-import kotlin.time.measureTimedValue
-
 enum class PerftValue {
     NODES,
     CAPTURES,
@@ -137,7 +134,7 @@ class PerftResult private constructor(val fen: String, private val results: Map<
 
 @ExperimentalStdlibApi
 class PerftCalculator(
-    val fen: String = FEN_INITIAL,
+    val fen: String = "",
     val deepth: Int = 2
 ) {
     private var perftResult: PerftResult? = null
@@ -149,7 +146,7 @@ class PerftCalculator(
 
     fun execute() {
         if (perftResult != null) return
-        val board = Board(fen)
+        val board = if(fen.isBlank()) Board() else Board(fen)
         val builder = PerftResult.builder(fen)
         val path = ArrayList<Movement>()
         walker(board, 1, builder, path)

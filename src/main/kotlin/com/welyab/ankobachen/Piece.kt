@@ -44,6 +44,7 @@ enum class PieceType(val letter: Char) {
     override fun toString() =
         name.toLowerCase().capitalize()
 
+    @Suppress("unused")
     companion object {
 
         const val KING_LETTER = 'K'
@@ -65,10 +66,11 @@ enum class PieceType(val letter: Char) {
             }
 
         fun isPieceTypeLetter(letter: Char) =
-            values().asSequence().any { it.letter == letter }
+            values().any { it.letter == letter }
     }
 }
 
+@Suppress("unused")
 enum class Piece(
     val type: PieceType,
     val color: Color,
@@ -234,7 +236,7 @@ enum class Piece(
                     KNIGHT -> WHITE_KNIGHT
                     PAWN -> WHITE_PAWN
                 }
-                Color.BLACK -> when (type) {
+                BLACK -> when (type) {
                     KING -> BLACK_KING
                     QUEEN -> BLACK_QUEEN
                     ROOK -> BLACK_ROOK

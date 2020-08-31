@@ -17,6 +17,7 @@ package com.welyab.ankobachen
 
 class PositionException(message: String, cause: Throwable? = null) : ChessException(message, cause)
 
+@Suppress("MemberVisibilityCanBePrivate")
 enum class Position(
     val row: Int,
     val column: Int

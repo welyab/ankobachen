@@ -13,6 +13,8 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+@file:Suppress("SpellCheckingInspection")
+
 package com.welyab.ankobachen
 
 import org.junit.jupiter.api.Assertions.assertEquals

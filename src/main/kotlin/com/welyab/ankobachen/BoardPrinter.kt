@@ -15,10 +15,11 @@
  */
 package com.welyab.ankobachen
 
+@ExperimentalUnsignedTypes
 @ExperimentalStdlibApi
 object BoardPrinter {
 
-    fun toString(board: Board) : String {
+    fun toString(board: Board): String {
         val pieceLocations = board.getPieceLocations()
         return (0..7)
             .asSequence()
@@ -28,7 +29,8 @@ object BoardPrinter {
                     .filter { it.position.row == row }
                     .sortedBy { it.position.column }
                     .toList()
-                val rowLetters = (0..7).asSequence()
+                val rowLetters = (0..7)
+                    .asSequence()
                     .map { column ->
                         rowPieces.asSequence()
                             .filter { it.position.column == column }

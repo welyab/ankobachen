@@ -13,6 +13,8 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+@file:Suppress("SpellCheckingInspection")
+
 package com.welyab.ankobachen
 
 val STANDARRD_CHESS_START_POSITION = "RNBQKBNR"
@@ -977,5 +979,5 @@ val CHESS_960_START_POSITIONS = listOf(
     "RBKRNNBQ",
     "RKRBNNBQ",
     "RKRNNBBQ",
-    "RKRNNQBB"
+    "RKRNNQBB",
 )

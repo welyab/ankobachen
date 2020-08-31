@@ -17,6 +17,17 @@ package com.welyab.ankobachen
 
 class FenException(message: String, cause: Throwable? = null) : ChessException(message, cause)
 
+private const val FEN_WHITE_KING_SIDE_CASTLING_FLAG = 'K'
+private const val FEN_WHITE_QUEEN_SIDE_CASTLING_FLAG = 'Q'
+private const val FEN_BLACK_KING_SIDE_CASTLING_FLAG = 'k'
+private const val FEN_BLACK_QUEEN_SIDE_CASTLING_FLAG = 'q'
+
+private const val WHITE_ROOK_LETTER = 'R'
+private const val BLACK_ROOK_LETTER = 'r'
+
+const val FEN_DEFAULT_HALF_MOVE_CLOCK = 0
+const val FEN_DEFAULT_FULL_MOVE_COUNTER = 1
+
 class CastlingFlags(
     val leftWhiteRook: Position? = null,
     val rightWhiteRook: Position? = null,
@@ -33,7 +44,7 @@ data class FenInfo(
     val fullMoveCounter: Int
 )
 
-class FenString(val fen: String, val chessVarian: ChessVarian = ChessVarian.STANDARD) {
+class FenString(val fen: String, val chessVariant: ChessVariant = ChessVariant.STANDARD) {
 
     private var fenInfo: FenInfo? = null
 
