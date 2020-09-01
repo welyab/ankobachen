@@ -42,9 +42,9 @@ object BoardPrinter {
                     .toTypedArray()
                 "│ %c │ %c │ %c │ %c │ %c │ %c │ %c │ %c │".format(*rowLetters)
             }
-            .reduce { l1, l2 -> "$l1${com.welyab.ankobachen.old.NEWLINE}├───┼───┼───┼───┼───┼───┼───┼───┤${com.welyab.ankobachen.old.NEWLINE}$l2" }
+            .reduce { l1, l2 -> "$l1${NEWLINE}├───┼───┼───┼───┼───┼───┼───┼───┤${NEWLINE}$l2" }
             .let {
-                "┌───┬───┬───┬───┬───┬───┬───┬───┐${com.welyab.ankobachen.old.NEWLINE}$it${com.welyab.ankobachen.old.NEWLINE}└───┴───┴───┴───┴───┴───┴───┴───┘${com.welyab.ankobachen.old.NEWLINE}"
+                "┌───┬───┬───┬───┬───┬───┬───┬───┐${NEWLINE}$it${NEWLINE}└───┴───┴───┴───┴───┴───┴───┴───┘${NEWLINE}"
             }
     }
 

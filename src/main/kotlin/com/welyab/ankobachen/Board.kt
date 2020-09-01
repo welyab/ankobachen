@@ -1155,3 +1155,14 @@ class Board : Copyable<Board> {
         private val RIGHT_CASTLING_FINAL_POSITIONS = 0x0600000000000006uL
     }
 }
+
+@ExperimentalStdlibApi
+fun main() {
+    val board = Board()
+    board.move(Position.E2, Position.E4)
+    board.move(Position.E7, Position.E5)
+    board.move(Position.G1, Position.F3)
+    board.move(Position.B8, Position.C6)
+    board.move(Position.F1, Position.B5)
+    println(board)
+}
