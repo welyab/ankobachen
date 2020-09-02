@@ -64,17 +64,10 @@ class BoardException(
 
 @ExperimentalUnsignedTypes
 private data class MoveLog(
-    val fromPiece: Piece,
-    val fromSquare: Int,
-    val toPiece: Piece,
-    val toSquare: Int,
-    val isEnPassant: Boolean,
-    val isLeftCastling: Boolean,
-    val isRightCastling: Boolean,
+    val bits: Map<Piece, ULong>,
     val halfMoveCounter: Int,
     val epTargetSquare: ULong,
-    val castlingFlags: ULong,
-    val capturedPiece: Piece?
+    val castlingFlags: ULong
 )
 
 @ExperimentalUnsignedTypes
@@ -215,7 +208,7 @@ class Board : Copyable<Board> {
     fun getPieceLocations(): List<PieceLocation> = getPieceLocations2(BLACK) + getPieceLocations2(WHITE)
     fun getPieceLocations(color: Color): List<PieceLocation> = getPieceLocations2(color)
 
-    fun getMovements(position: Position): Movements = getMovements(position.squareIndex, false)
+    fun getMovements(position: Position): Movements = getMovements(position.squareIndex, true, false)
     fun getMovements(color: Color = sideToMove): Movements = getMovements(color, true)
     fun getMovementRandom(): Movement = getMovements(sideToMove, true).getRandomMovement()
     fun forEachMovement(visitor: (Movement) -> Unit) {
@@ -225,7 +218,7 @@ class Board : Copyable<Board> {
     fun moveRandom(): Unit = move(getMovementRandom())
     fun move(movement: Movement) = move(movement.from, movement.to, movement.toPiece, movement.flags)
     fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
-        val movement = getMovements(from.squareIndex, false)
+        val movement = getMovements(from.squareIndex, true, false)
             .asSequenceOfMovements()
             .filter { it.to == to.squareIndex }
             .filter { !it.flags.isPromotion || it.toPiece.type == toPiece }
@@ -244,34 +237,8 @@ class Board : Copyable<Board> {
 
     fun undo() {
         val log = moveLog.removeLast()
-
-        if (log.isLeftCastling || log.isRightCastling) {
-            val finalPositions = when (log.fromPiece.color) {
-                WHITE -> if (log.isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
-                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
-                BLACK -> if (log.isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
-                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
-            }
-
-            val kingDestination = if (log.isLeftCastling) finalPositions.countLeadingZeroBits()
-            else ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
-
-            val rookDestination = if (log.isLeftCastling) ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
-            else finalPositions.countLeadingZeroBits()
-
-            setBitBoardBit(log.fromPiece, kingDestination, false)
-            setBitBoardBit(log.fromPiece.rook, rookDestination, false)
-            setBitBoardBit(log.fromPiece, log.fromSquare, true)
-            setBitBoardBit(log.fromPiece.rook, log.toSquare, true)
-        } else {
-            setBitBoardBit(log.fromPiece, log.fromSquare, true)
-            setBitBoardBit(log.toPiece, log.toSquare, false)
-            if (log.isEnPassant) {
-                val enPassantCaptured = getEnPassantCapturedSquare(sideToMove.opposite, log.toSquare)
-                setBitBoardBit(log.capturedPiece!!, enPassantCaptured, true)
-            } else if (log.capturedPiece != null) {
-                setBitBoardBit(log.capturedPiece, log.toSquare, true)
-            }
+        for(entry in log.bits) {
+            setBitBoard(entry.key, entry.value)
         }
         halfMoveClock = log.halfMoveCounter
         if (sideToMove.isWhite) fullMoveCounter--
@@ -328,12 +295,16 @@ class Board : Copyable<Board> {
         }
     }
 
-    private fun getMovements(squareIndex: Int, onlyFirstMovement: Boolean): Movements = Movements(
+    private fun getMovements(
+        squareIndex: Int,
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
+    ): Movements = Movements(
         listOf(
             getMovements(
                 piece = getPiece(squareIndex),
                 squareIndex = squareIndex,
-                extractExtraFlags = true,
+                extractExtraFlags = extractExtraFlags,
                 onlyFirstMovement = onlyFirstMovement
             )
         )
@@ -1055,18 +1026,16 @@ class Board : Copyable<Board> {
             else -> null
         }
 
+        val map = HashMap<Piece, ULong>()
+        map[fromPiece] = getPieceBitBoard(fromPiece)
+        if(capturedPiece != null) map[capturedPiece] = getPieceBitBoard(capturedPiece)
+        if(isLeftCastling || isRightCastling) map[fromPiece.rook] = getPieceBitBoard(fromPiece.rook)
+        if(isPromotion) map[toPiece] = getPieceBitBoard(toPiece)
         moveLog += MoveLog(
-            fromPiece,
-            fromSquare,
-            toPiece,
-            toSquare,
-            isEnPassant,
-            isLeftCastling,
-            isRightCastling,
-            halfMoveClock,
-            epTargetSquare,
-            castlingFlags,
-            capturedPiece
+            bits = map,
+            halfMoveCounter = halfMoveClock,
+            epTargetSquare = epTargetSquare,
+            castlingFlags = castlingFlags
         )
 
         if (isLeftCastling || isRightCastling) {

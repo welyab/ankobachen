@@ -233,8 +233,8 @@ class PathEnumerator(
 fun main() {
     measureTimedValue {
         PerftCalculator(
-            "k4rq1/8/8/8/8/8/7R/1Q5K w - - 0 1",
-            6
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
+            4
         ).getPerftResult()
             .apply {
                 println(this)
