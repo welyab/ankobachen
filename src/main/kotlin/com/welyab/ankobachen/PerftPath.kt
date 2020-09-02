@@ -15,6 +15,9 @@
  */
 package com.welyab.ankobachen
 
+import kotlin.time.ExperimentalTime
+import kotlin.time.measureTimedValue
+
 enum class PerftValue {
     NODES,
     CAPTURES,
@@ -146,7 +149,7 @@ class PerftCalculator(
 
     fun execute() {
         if (perftResult != null) return
-        val board = if(fen.isBlank()) Board() else Board(fen)
+        val board = if (fen.isBlank()) Board() else Board(fen)
         val builder = PerftResult.builder(fen)
         val path = ArrayList<Movement>()
         walker(board, 1, builder, path)
@@ -222,5 +225,21 @@ class PathEnumerator(
                 }
             }
         return sum
+    }
+}
+
+@ExperimentalTime
+@ExperimentalStdlibApi
+fun main() {
+    measureTimedValue {
+        PerftCalculator(
+            "k4rq1/8/8/8/8/8/7R/1Q5K w - - 0 1",
+            6
+        ).getPerftResult()
+            .apply {
+                println(this)
+            }
+    }.duration.apply {
+        println("${this.inSeconds} seconds")
     }
 }

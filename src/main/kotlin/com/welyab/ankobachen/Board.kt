@@ -54,6 +54,7 @@ import com.welyab.ankobachen.PieceType.PAWN
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.extensions.shift
+import java.util.EnumMap
 import kotlin.math.absoluteValue
 
 class BoardException(
@@ -75,6 +76,13 @@ private data class MoveLog(
     val castlingFlags: ULong,
     val capturedPiece: Piece?
 )
+
+@ExperimentalUnsignedTypes
+private interface PieceBitBoard {
+    fun getBits(): ULong
+    fun getPiece(): Piece
+    fun setBits(bits: ULong)
+}
 
 @Suppress(
     "MemberVisibilityCanBePrivate",
@@ -106,13 +114,98 @@ class Board : Copyable<Board> {
     private var castlingFlags = 0uL
     private val moveLog = ArrayList<MoveLog>()
 
-    constructor() : this(FEN_INITIAL)
+    private val bitboardByPiece = EnumMap<Piece, PieceBitBoard>(Piece::class.java).apply {
+        this[WHITE_KING] = object : PieceBitBoard {
+            override fun getPiece() = WHITE_KING
+            override fun getBits() = whiteKing
+            override fun setBits(bits: ULong) {
+                whiteKing = bits
+            }
+        }
+        this[WHITE_QUEEN] = object : PieceBitBoard {
+            override fun getPiece() = WHITE_QUEEN
+            override fun getBits() = whiteQueens
+            override fun setBits(bits: ULong) {
+                whiteQueens = bits
+            }
+        }
+        this[WHITE_ROOK] = object : PieceBitBoard {
+            override fun getPiece() = WHITE_ROOK
+            override fun getBits() = whiteRooks
+            override fun setBits(bits: ULong) {
+                whiteRooks = bits
+            }
+        }
+        this[WHITE_BISHOP] = object : PieceBitBoard {
+            override fun getPiece() = WHITE_BISHOP
+            override fun getBits() = whiteBishops
+            override fun setBits(bits: ULong) {
+                whiteBishops = bits
+            }
+        }
+        this[WHITE_KNIGHT] = object : PieceBitBoard {
+            override fun getPiece() = WHITE_KNIGHT
+            override fun getBits() = whiteKnights
+            override fun setBits(bits: ULong) {
+                whiteKnights = bits
+            }
+        }
+        this[WHITE_PAWN] = object : PieceBitBoard {
+            override fun getPiece() = WHITE_PAWN
+            override fun getBits() = whitePawns
+            override fun setBits(bits: ULong) {
+                whitePawns = bits
+            }
+        }
+        this[BLACK_KING] = object : PieceBitBoard {
+            override fun getPiece() = BLACK_KING
+            override fun getBits() = blackKing
+            override fun setBits(bits: ULong) {
+                blackKing = bits
+            }
+        }
+        this[BLACK_QUEEN] = object : PieceBitBoard {
+            override fun getPiece() = BLACK_QUEEN
+            override fun getBits() = blackQueens
+            override fun setBits(bits: ULong) {
+                blackQueens = bits
+            }
+        }
+        this[BLACK_ROOK] = object : PieceBitBoard {
+            override fun getPiece() = BLACK_ROOK
+            override fun getBits() = blackRooks
+            override fun setBits(bits: ULong) {
+                blackRooks = bits
+            }
+        }
+        this[BLACK_BISHOP] = object : PieceBitBoard {
+            override fun getPiece() = BLACK_BISHOP
+            override fun getBits() = blackBishops
+            override fun setBits(bits: ULong) {
+                blackBishops = bits
+            }
+        }
+        this[BLACK_KNIGHT] = object : PieceBitBoard {
+            override fun getPiece() = BLACK_KNIGHT
+            override fun getBits() = blackKnights
+            override fun setBits(bits: ULong) {
+                blackKnights = bits
+            }
+        }
+        this[BLACK_PAWN] = object : PieceBitBoard {
+            override fun getPiece() = BLACK_PAWN
+            override fun getBits() = blackPawns
+            override fun setBits(bits: ULong) {
+                blackPawns = bits
+            }
+        }
+    }
 
     constructor(fen: String) {
         setFen(FenString(fen))
     }
 
-    constructor(initialize: Boolean) {
+    constructor(initialize: Boolean = true) {
         if (initialize) setFen(FEN_INITIAL)
     }
 
@@ -122,7 +215,7 @@ class Board : Copyable<Board> {
     fun getPieceLocations(): List<PieceLocation> = getPieceLocations2(BLACK) + getPieceLocations2(WHITE)
     fun getPieceLocations(color: Color): List<PieceLocation> = getPieceLocations2(color)
 
-    fun getMovements(position: Position): Movements = getMovements(position.squareIndex)
+    fun getMovements(position: Position): Movements = getMovements(position.squareIndex, false)
     fun getMovements(color: Color = sideToMove): Movements = getMovements(color, true)
     fun getMovementRandom(): Movement = getMovements(sideToMove, true).getRandomMovement()
     fun forEachMovement(visitor: (Movement) -> Unit) {
@@ -132,7 +225,7 @@ class Board : Copyable<Board> {
     fun moveRandom(): Unit = move(getMovementRandom())
     fun move(movement: Movement) = move(movement.from, movement.to, movement.toPiece, movement.flags)
     fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
-        val movement = getMovements(from.squareIndex)
+        val movement = getMovements(from.squareIndex, false)
             .asSequenceOfMovements()
             .filter { it.to == to.squareIndex }
             .filter { !it.flags.isPromotion || it.toPiece.type == toPiece }
@@ -167,9 +260,9 @@ class Board : Copyable<Board> {
             else finalPositions.countLeadingZeroBits()
 
             setBitBoardBit(log.fromPiece, kingDestination, false)
-            setBitBoardBit(log.fromPiece.getRook(), rookDestination, false)
+            setBitBoardBit(log.fromPiece.rook, rookDestination, false)
             setBitBoardBit(log.fromPiece, log.fromSquare, true)
-            setBitBoardBit(log.fromPiece.getRook(), log.toSquare, true)
+            setBitBoardBit(log.fromPiece.rook, log.toSquare, true)
         } else {
             setBitBoardBit(log.fromPiece, log.fromSquare, true)
             setBitBoardBit(log.toPiece, log.toSquare, false)
@@ -235,35 +328,28 @@ class Board : Copyable<Board> {
         }
     }
 
-    private fun getMovements(squareIndex: Int): Movements = Movements(
+    private fun getMovements(squareIndex: Int, onlyFirstMovement: Boolean): Movements = Movements(
         listOf(
             getMovements(
                 piece = getPiece(squareIndex),
                 squareIndex = squareIndex,
-                extractExtraFlags = true
+                extractExtraFlags = true,
+                onlyFirstMovement = onlyFirstMovement
             )
         )
     )
 
-    private fun getMovements(color: Color, extractExtraFlags: Boolean): Movements {
+    private fun getMovements(
+        color: Color,
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean = false
+    ): Movements {
         val pieceMovements = ArrayList<PieceMovement>(24)
-        when (color) {
-            WHITE -> {
-                getMovements(WHITE_KING, whiteKing, pieceMovements, extractExtraFlags)
-                getMovements(WHITE_QUEEN, whiteQueens, pieceMovements, extractExtraFlags)
-                getMovements(WHITE_ROOK, whiteRooks, pieceMovements, extractExtraFlags)
-                getMovements(WHITE_BISHOP, whiteBishops, pieceMovements, extractExtraFlags)
-                getMovements(WHITE_KNIGHT, whiteKnights, pieceMovements, extractExtraFlags)
-                getMovements(WHITE_PAWN, whitePawns, pieceMovements, extractExtraFlags)
-            }
-            BLACK -> {
-                getMovements(BLACK_KING, blackKing, pieceMovements, extractExtraFlags)
-                getMovements(BLACK_QUEEN, blackQueens, pieceMovements, extractExtraFlags)
-                getMovements(BLACK_ROOK, blackRooks, pieceMovements, extractExtraFlags)
-                getMovements(BLACK_BISHOP, blackBishops, pieceMovements, extractExtraFlags)
-                getMovements(BLACK_KNIGHT, blackKnights, pieceMovements, extractExtraFlags)
-                getMovements(BLACK_PAWN, blackPawns, pieceMovements, extractExtraFlags)
-            }
+        for (piece in Piece.values()) {
+            if (piece.color != color) continue
+            val bitboardPiece = bitboardByPiece[piece]!!
+            getMovements(piece, bitboardPiece.getBits(), pieceMovements, extractExtraFlags, onlyFirstMovement)
+            if (onlyFirstMovement && pieceMovements.isNotEmpty()) break
         }
         return Movements(pieceMovements)
     }
@@ -272,16 +358,20 @@ class Board : Copyable<Board> {
         piece: Piece,
         pieceBitBoard: ULong,
         pieceMovements: MutableList<PieceMovement>,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean = true
     ) {
         var bb = pieceBitBoard
         while (bb != ZERO) {
             val fromSquare = bb.countLeadingZeroBits()
-            pieceMovements += getMovements(
+            val pieceMovement = getMovements(
                 piece = piece,
                 squareIndex = fromSquare,
-                extractExtraFlags = extractExtraFlags
+                extractExtraFlags = extractExtraFlags,
+                onlyFirstMovement = onlyFirstMovement
             )
+            if (pieceMovement.isNotEmpty()) pieceMovements += pieceMovement
+            if (onlyFirstMovement && pieceMovements.isNotEmpty()) break
             bb = bb and FULL.shift(fromSquare + 1)
         }
     }
@@ -289,16 +379,17 @@ class Board : Copyable<Board> {
     private fun getMovements(
         piece: Piece,
         squareIndex: Int,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val occupied = getOccupiedBitBoard(piece.color)
         return when (piece.type) {
-            KING -> getKingMovements(piece, squareIndex, occupied, extractExtraFlags)
-            QUEEN -> getQueenMovements(piece, squareIndex, occupied, extractExtraFlags)
-            ROOK -> getRookMovements(piece, squareIndex, occupied, extractExtraFlags)
-            BISHOP -> getBishopMovements(piece, squareIndex, occupied, extractExtraFlags)
-            KNIGHT -> getKnightMovements(piece, squareIndex, occupied, extractExtraFlags)
-            PAWN -> getPawnMovements(piece, squareIndex, occupied, extractExtraFlags)
+            KING -> getKingMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
+            QUEEN -> getQueenMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
+            ROOK -> getRookMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
+            BISHOP -> getBishopMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
+            KNIGHT -> getKnightMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
+            PAWN -> getPawnMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
         }
     }
 
@@ -306,11 +397,12 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val targetSquares = KING_MOVE_MASK[fromSquare] and ownPieces.inv()
         val movementTargets = ArrayList<MovementTarget>()
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags, onlyFirstMovement)
         getCastlingMovements(
             fromPiece = piece,
             fromSquare = fromSquare,
@@ -386,7 +478,7 @@ class Board : Copyable<Board> {
         if (isSquareAttacked(kingFromSquare, king.color.opposite)) return
         val kingMoveDirection = if (kingFromSquare < kingFinalSquare) 1 else -1
         var kingPathSquare = kingFromSquare
-        val occupied = getOccupiedBitBoard() and (getPieceBitBoard(king.getRook()) or getPieceBitBoard(king)).inv()
+        val occupied = getOccupiedBitBoard() and (getPieceBitBoard(king.rook) or getPieceBitBoard(king)).inv()
         do {
             kingPathSquare += kingMoveDirection
             if (isSquareAttacked(kingPathSquare, king.color.opposite)) return
@@ -424,10 +516,11 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags)
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags, onlyFirstMovement)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -435,10 +528,11 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags)
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags, onlyFirstMovement)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -446,10 +540,11 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags)
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags, onlyFirstMovement)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -458,10 +553,11 @@ class Board : Copyable<Board> {
         fromSquare: Int,
         ownPieces: ULong,
         movementTargets: ArrayList<MovementTarget>,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ) {
         val targetSquares = getSlidingPieceTargetSquares(piece, fromSquare, ownPieces)
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags, onlyFirstMovement)
     }
 
     private fun getSlidingPieceTargetSquares(piece: Piece, fromSquare: Int, ownPieces: ULong): ULong {
@@ -495,11 +591,12 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val targetSquares = KNIGHT_MOVE_MASK[fromSquare] and ownPieces.inv()
         val movementTargets = ArrayList<MovementTarget>()
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags, onlyFirstMovement)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -507,11 +604,12 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         return when (piece.color) {
-            WHITE -> getWhitePawnMovements(piece, fromSquare, ownPieces, extractExtraFlags)
-            BLACK -> getBlackPawnMovements(piece, fromSquare, ownPieces, extractExtraFlags)
+            WHITE -> getWhitePawnMovements(piece, fromSquare, ownPieces, extractExtraFlags, onlyFirstMovement)
+            BLACK -> getBlackPawnMovements(piece, fromSquare, ownPieces, extractExtraFlags, onlyFirstMovement)
         }
     }
 
@@ -519,7 +617,8 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val targetSquares = getPawnTargetSquares(
             ownPieces,
@@ -532,7 +631,8 @@ class Board : Copyable<Board> {
             piece,
             fromSquare,
             targetSquares,
-            extractExtraFlags
+            extractExtraFlags,
+            onlyFirstMovement
         )
     }
 
@@ -540,7 +640,8 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         val targetSquares = getPawnTargetSquares(
             ownPieces,
@@ -553,7 +654,8 @@ class Board : Copyable<Board> {
             piece,
             fromSquare,
             targetSquares,
-            extractExtraFlags
+            extractExtraFlags,
+            onlyFirstMovement
         )
     }
 
@@ -575,7 +677,8 @@ class Board : Copyable<Board> {
         pawn: Piece,
         fromSquare: Int,
         targetSquares: ULong,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ): PieceMovement {
         var t = targetSquares
         val movementTargets = ArrayList<MovementTarget>()
@@ -618,6 +721,7 @@ class Board : Copyable<Board> {
                         toSquare,
                         MovementFlags(flags)
                     )
+                    if (onlyFirstMovement) break
                 }
             }
             t = t and FULL.shift(toSquare + 1)
@@ -640,7 +744,8 @@ class Board : Copyable<Board> {
         fromIndex: Int,
         targetSquares: ULong,
         movementTargets: ArrayList<MovementTarget>,
-        extractExtraFlags: Boolean
+        extractExtraFlags: Boolean,
+        onlyFirstMovement: Boolean
     ) {
         var s = targetSquares
         while (s != EMPTY) {
@@ -674,6 +779,7 @@ class Board : Copyable<Board> {
                     toIndex,
                     MovementFlags(flags)
                 )
+                if (onlyFirstMovement) break
             }
             s = s and FULL.shift(toIndex + 1)
         }
@@ -689,6 +795,8 @@ class Board : Copyable<Board> {
         isCapture: Boolean,
         isPromotion: Boolean
     ): ULong {
+//        if(true) return 0uL
+
         move(
             fromSquare = fromSquare,
             toSquare = toSquare,
@@ -703,19 +811,15 @@ class Board : Copyable<Board> {
             WHITE -> blackKing.countLeadingZeroBits()
             BLACK -> whiteKing.countLeadingZeroBits()
         }
-        val attackers = when (toPiece.color) {
-            WHITE -> getAttackersBits(kingIndex, WHITE)
-            BLACK -> getAttackersBits(kingIndex, BLACK)
-        }
-        val movements = getMovements(
-            color = toPiece.color.opposite,
-            extractExtraFlags = false
-        )
+        val attackers = getAttackersBits(kingIndex, toPiece.color)
         val attackersCount = attackers.countOneBits()
         var extraFlags = 0uL
         if (attackersCount > 0) {
             extraFlags = extraFlags or MovementFlags.CHECK_MASK
-            if (movements.isEmpty()) extraFlags = extraFlags or MovementFlags.CHECKMATE_MASK
+        }
+        if (attackersCount == 2) {
+            extraFlags = extraFlags or MovementFlags.DOUBLE_CHECK_MASK
+        } else if (attackersCount == 1) {
             if (!toPiece.isKing) setBitBoardBit(toPiece, toSquare, false)
             if (attackers and getMaskedSquare(toSquare) == ZERO) {
                 val rays = getQueenTargetSquares(kingIndex, getOccupiedBitBoard(toPiece.color.opposite))
@@ -724,10 +828,31 @@ class Board : Copyable<Board> {
                 }
             }
             if (!toPiece.isKing) setBitBoardBit(toPiece, toSquare, true)
-        } else if (movements.isEmpty()) {
-            extraFlags = extraFlags or MovementFlags.STALEMATE_MASK
         }
-        if (attackersCount == 2) extraFlags = extraFlags or MovementFlags.DOUBLE_CHECK_MASK
+
+        val kingMovements = getMovements(
+            piece = toPiece.oppositeKing,
+            squareIndex = kingIndex,
+            extractExtraFlags = false,
+            onlyFirstMovement = true
+        )
+        if (attackersCount == 2 && kingMovements.isEmpty()) {
+            extraFlags = extraFlags or MovementFlags.CHECKMATE_MASK
+        } else if (
+            kingMovements.isEmpty()
+            && getMovements(
+                color = toPiece.color.opposite,
+                extractExtraFlags = false,
+                onlyFirstMovement = true
+            ).isEmpty()
+        ) {
+            extraFlags = if (attackersCount > 0) {
+                extraFlags or MovementFlags.CHECKMATE_MASK
+            } else {
+                extraFlags or MovementFlags.STALEMATE_MASK
+            }
+        }
+
         undo()
         return extraFlags
     }
@@ -835,20 +960,7 @@ class Board : Copyable<Board> {
     }
 
     private fun getPieceBitBoard(piece: Piece): ULong {
-        return when (piece) {
-            WHITE_KING -> whiteKing
-            WHITE_QUEEN -> whiteQueens
-            WHITE_ROOK -> whiteRooks
-            WHITE_BISHOP -> whiteBishops
-            WHITE_KNIGHT -> whiteKnights
-            WHITE_PAWN -> whitePawns
-            BLACK_KING -> blackKing
-            BLACK_QUEEN -> blackQueens
-            BLACK_ROOK -> blackRooks
-            BLACK_BISHOP -> blackBishops
-            BLACK_KNIGHT -> blackKnights
-            BLACK_PAWN -> blackPawns
-        }
+        return bitboardByPiece[piece]!!.getBits()
     }
 
     private fun setBitBoardBit(piece: Piece, bitIndex: Int, value: Boolean) {
@@ -859,20 +971,7 @@ class Board : Copyable<Board> {
     }
 
     private fun setBitBoard(piece: Piece, bitboard: ULong) {
-        when (piece) {
-            WHITE_KING -> whiteKing = bitboard
-            WHITE_QUEEN -> whiteQueens = bitboard
-            WHITE_ROOK -> whiteRooks = bitboard
-            WHITE_BISHOP -> whiteBishops = bitboard
-            WHITE_KNIGHT -> whiteKnights = bitboard
-            WHITE_PAWN -> whitePawns = bitboard
-            BLACK_KING -> blackKing = bitboard
-            BLACK_QUEEN -> blackQueens = bitboard
-            BLACK_ROOK -> blackRooks = bitboard
-            BLACK_BISHOP -> blackBishops = bitboard
-            BLACK_KNIGHT -> blackKnights = bitboard
-            BLACK_PAWN -> blackPawns = bitboard
-        }
+        bitboardByPiece[piece]!!.setBits(bitboard)
     }
 
     private fun getPieceLocations2(color: Color): List<PieceLocation> {
@@ -948,7 +1047,7 @@ class Board : Copyable<Board> {
         isCapture: Boolean,
         isPromotion: Boolean
     ) {
-        val fromPiece = if (isPromotion) toPiece.getPawn() else toPiece
+        val fromPiece = if (isPromotion) toPiece.pawn else toPiece
         val enPassantCapturedSquare = getEnPassantCapturedSquare(toPiece.color, toSquare)
         val capturedPiece = when {
             isEnPassant -> getPiece(enPassantCapturedSquare)
@@ -985,9 +1084,9 @@ class Board : Copyable<Board> {
             else finalPositions.countLeadingZeroBits()
 
             setBitBoardBit(fromPiece, kingDestination, true)
-            setBitBoardBit(fromPiece.getRook(), rookDestination, true)
+            setBitBoardBit(fromPiece.rook, rookDestination, true)
             setBitBoardBit(fromPiece, fromSquare, false)
-            setBitBoardBit(fromPiece.getRook(), toSquare, false)
+            setBitBoardBit(fromPiece.rook, toSquare, false)
         } else {
             setBitBoardBit(fromPiece, fromSquare, false)
             setBitBoardBit(toPiece, toSquare, true)
@@ -1158,8 +1257,22 @@ class Board : Copyable<Board> {
 
 @ExperimentalStdlibApi
 fun main() {
-    val board = Board()
-    board.forEachMovement { move ->
-        println(move)
+    val board = Board("k4rq1/8/8/8/8/8/7R/1Q5K w - - 0 1")
+    val movements = board.getMovements(Position.H5)
+    movements.forEachMovement {
+        println(it)
     }
+//    val board = Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
+//    board.forEachMovement { move1 ->
+//        board.move(move1)
+//        board.forEachMovement { move2 ->
+//            board.move(move2)
+//            board.getMovements()
+//                .asSequenceOfMovements()
+//                .filter { it.flags.isCheckmate }
+//                .forEach { move3 -> println("$move1, $move2, $move3") }
+//            board.undo()
+//        }
+//        board.undo()
+//    }
 }

@@ -254,6 +254,9 @@ class PieceMovement(
     val metadata: MovementMetadata = targets.summarizeFlags()
     val targetCount = targets.size
 
+    fun isEmpty(): Boolean = targets.isEmpty()
+    fun isNotEmpty(): Boolean = targets.isNotEmpty()
+
     fun forEachTarget(visitor: (MovementTarget) -> Unit) {
         targets.forEach { visitor.invoke(it) }
     }

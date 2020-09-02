@@ -77,19 +77,42 @@ enum class Piece(
     override val letter: Char
 ) : SquareContent<Piece> {
 
-    WHITE_KING(KING, WHITE, Piece.WHITE_KING_LETTER),
-    WHITE_QUEEN(QUEEN, WHITE, Piece.WHITE_QUEEN_LETTER),
-    WHITE_ROOK(ROOK, WHITE, Piece.WHITE_ROOK_LETTER),
-    WHITE_BISHOP(BISHOP, WHITE, Piece.WHITE_BISHOP_LETTER),
-    WHITE_KNIGHT(KNIGHT, WHITE, Piece.WHITE_KNIGHT_LETTER),
-    WHITE_PAWN(PAWN, WHITE, Piece.WHITE_PAWN_LETTER),
-
-    BLACK_KING(KING, BLACK, Piece.BLACK_KING_LETTER),
-    BLACK_QUEEN(QUEEN, BLACK, Piece.BLACK_QUEEN_LETTER),
-    BLACK_ROOK(ROOK, BLACK, Piece.BLACK_ROOK_LETTER),
-    BLACK_BISHOP(BISHOP, BLACK, Piece.BLACK_BISHOP_LETTER),
-    BLACK_KNIGHT(KNIGHT, BLACK, Piece.BLACK_KNIGHT_LETTER),
-    BLACK_PAWN(PAWN, BLACK, Piece.BLACK_PAWN_LETTER);
+    WHITE_KING(KING, WHITE, Piece.WHITE_KING_LETTER) {
+        override val opposite: Piece get() = BLACK_KING
+    },
+    WHITE_QUEEN(QUEEN, WHITE, Piece.WHITE_QUEEN_LETTER) {
+        override val opposite: Piece get() = BLACK_QUEEN
+    },
+    WHITE_ROOK(ROOK, WHITE, Piece.WHITE_ROOK_LETTER) {
+        override val opposite: Piece get() = BLACK_ROOK
+    },
+    WHITE_BISHOP(BISHOP, WHITE, Piece.WHITE_BISHOP_LETTER) {
+        override val opposite: Piece get() = BLACK_BISHOP
+    },
+    WHITE_KNIGHT(KNIGHT, WHITE, Piece.WHITE_KNIGHT_LETTER) {
+        override val opposite: Piece get() = BLACK_KNIGHT
+    },
+    WHITE_PAWN(PAWN, WHITE, Piece.WHITE_PAWN_LETTER) {
+        override val opposite: Piece get() = BLACK_PAWN
+    },
+    BLACK_KING(KING, BLACK, Piece.BLACK_KING_LETTER) {
+        override val opposite: Piece get() = WHITE_KING
+    },
+    BLACK_QUEEN(QUEEN, BLACK, Piece.BLACK_QUEEN_LETTER) {
+        override val opposite: Piece get() = WHITE_QUEEN
+    },
+    BLACK_ROOK(ROOK, BLACK, Piece.BLACK_ROOK_LETTER) {
+        override val opposite: Piece get() = WHITE_ROOK
+    },
+    BLACK_BISHOP(BISHOP, BLACK, Piece.BLACK_BISHOP_LETTER) {
+        override val opposite: Piece get() = WHITE_BISHOP
+    },
+    BLACK_KNIGHT(KNIGHT, BLACK, Piece.BLACK_KNIGHT_LETTER) {
+        override val opposite: Piece get() = WHITE_KNIGHT
+    },
+    BLACK_PAWN(PAWN, BLACK, Piece.BLACK_PAWN_LETTER) {
+        override val opposite: Piece get() = WHITE_PAWN
+    };
 
     override val isKing = type.isKing
     override val isQueen = type.isQueen
@@ -118,71 +141,44 @@ enum class Piece(
     override val isEmpty = false
     override val isNotEmpty = true
 
-    fun getKing() = when (color) {
+    abstract val opposite: Piece
+
+    val king: Piece get() = when (color) {
         WHITE -> WHITE_KING
         BLACK -> BLACK_KING
     }
 
-    fun getQueen() = when (color) {
+    val queen: Piece get() = when (color) {
         WHITE -> WHITE_QUEEN
         BLACK -> BLACK_QUEEN
     }
 
-    fun getRook() = when (color) {
+    val rook: Piece get() = when (color) {
         WHITE -> WHITE_ROOK
         BLACK -> BLACK_ROOK
     }
 
-    fun getBishop() = when (color) {
+    val bishop: Piece get() = when (color) {
         WHITE -> WHITE_BISHOP
         BLACK -> BLACK_BISHOP
     }
 
-    fun getKnight() = when (color) {
+    val knight: Piece get() = when (color) {
         WHITE -> WHITE_KNIGHT
         BLACK -> BLACK_KNIGHT
     }
 
-    fun getPawn() = when (color) {
+    val pawn: Piece get() = when (color) {
         WHITE -> WHITE_PAWN
         BLACK -> BLACK_PAWN
     }
 
-    val oppositeKing
-        get() = when (color) {
-            WHITE -> WHITE_KING
-            BLACK -> BLACK_KING
-        }
-
-    val oppositeQueen
-        get() = when (color) {
-            WHITE -> WHITE_QUEEN
-            BLACK -> BLACK_QUEEN
-        }
-
-    val oppositeRook
-        get() = when (color) {
-            WHITE -> WHITE_ROOK
-            BLACK -> BLACK_ROOK
-        }
-
-    val oppositeBishop
-        get() = when (color) {
-            WHITE -> WHITE_BISHOP
-            BLACK -> BLACK_BISHOP
-        }
-
-    val oppositeKnight
-        get() = when (color) {
-            WHITE -> WHITE_KNIGHT
-            BLACK -> BLACK_KNIGHT
-        }
-
-    val oppositePawn
-        get() = when (color) {
-            WHITE -> WHITE_PAWN
-            BLACK -> BLACK_PAWN
-        }
+    val oppositeKing get() = opposite.king
+    val oppositeQueen get() = opposite.queen
+    val oppositeRook get() = opposite.rook
+    val oppositeBishop get() = opposite.bishop
+    val oppositeKnight get() = opposite.knight
+    val oppositePawn get() = opposite.pawn
 
     override fun isColorOf(color: Color) = this.color == color
 
