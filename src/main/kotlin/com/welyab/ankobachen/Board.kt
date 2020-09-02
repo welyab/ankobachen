@@ -208,9 +208,9 @@ class Board : Copyable<Board> {
     fun getPieceLocations(): List<PieceLocation> = getPieceLocations2(BLACK) + getPieceLocations2(WHITE)
     fun getPieceLocations(color: Color): List<PieceLocation> = getPieceLocations2(color)
 
-    fun getMovements(position: Position): Movements = getMovements(position.squareIndex, true, false)
-    fun getMovements(color: Color = sideToMove): Movements = getMovements(color, true)
-    fun getMovementRandom(): Movement = getMovements(sideToMove, true).getRandomMovement()
+    fun getMovements(position: Position): Movements = getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
+    fun getMovements(color: Color = sideToMove): Movements = getMovements(color, ALL_FLAGS or ALL_MOVEMENTS)
+    fun getMovementRandom(): Movement = getMovements(sideToMove, ALL_FLAGS or ALL_MOVEMENTS).getRandomMovement()
     fun forEachMovement(visitor: (Movement) -> Unit) {
         getMovements().forEachMovement { visitor.invoke(it) }
     }
@@ -218,7 +218,7 @@ class Board : Copyable<Board> {
     fun moveRandom(): Unit = move(getMovementRandom())
     fun move(movement: Movement) = move(movement.from, movement.to, movement.toPiece, movement.flags)
     fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
-        val movement = getMovements(from.squareIndex, true, false)
+        val movement = getMovements(from.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
             .asSequenceOfMovements()
             .filter { it.to == to.squareIndex }
             .filter { !it.flags.isPromotion || it.toPiece.type == toPiece }
@@ -297,30 +297,24 @@ class Board : Copyable<Board> {
 
     private fun getMovements(
         squareIndex: Int,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        @Suppress("SameParameterValue") moveGenFlags: Int
     ): Movements = Movements(
         listOf(
             getMovements(
                 piece = getPiece(squareIndex),
                 squareIndex = squareIndex,
-                extractExtraFlags = extractExtraFlags,
-                onlyFirstMovement = onlyFirstMovement
+                moveGenFlags = moveGenFlags
             )
         )
     )
 
-    private fun getMovements(
-        color: Color,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean = false
-    ): Movements {
+    private fun getMovements(color: Color, moveGenFlags: Int): Movements {
         val pieceMovements = ArrayList<PieceMovement>(24)
         for (piece in Piece.values()) {
             if (piece.color != color) continue
             val bitboardPiece = bitboardByPiece[piece]!!
-            getMovements(piece, bitboardPiece.getBits(), pieceMovements, extractExtraFlags, onlyFirstMovement)
-            if (onlyFirstMovement && pieceMovements.isNotEmpty()) break
+            getMovements(piece, bitboardPiece.getBits(), pieceMovements, moveGenFlags)
+            if (moveGenFlags and ALL_MOVEMENTS == 0 && pieceMovements.isNotEmpty()) break
         }
         return Movements(pieceMovements)
     }
@@ -329,8 +323,7 @@ class Board : Copyable<Board> {
         piece: Piece,
         pieceBitBoard: ULong,
         pieceMovements: MutableList<PieceMovement>,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean = true
+        moveGenFlags: Int
     ) {
         var bb = pieceBitBoard
         while (bb != ZERO) {
@@ -338,11 +331,10 @@ class Board : Copyable<Board> {
             val pieceMovement = getMovements(
                 piece = piece,
                 squareIndex = fromSquare,
-                extractExtraFlags = extractExtraFlags,
-                onlyFirstMovement = onlyFirstMovement
+                moveGenFlags = moveGenFlags
             )
             if (pieceMovement.isNotEmpty()) pieceMovements += pieceMovement
-            if (onlyFirstMovement && pieceMovements.isNotEmpty()) break
+            if (moveGenFlags and ALL_MOVEMENTS == 0 && pieceMovements.isNotEmpty()) break
             bb = bb and FULL.shift(fromSquare + 1)
         }
     }
@@ -350,17 +342,16 @@ class Board : Copyable<Board> {
     private fun getMovements(
         piece: Piece,
         squareIndex: Int,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val occupied = getOccupiedBitBoard(piece.color)
         return when (piece.type) {
-            KING -> getKingMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
-            QUEEN -> getQueenMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
-            ROOK -> getRookMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
-            BISHOP -> getBishopMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
-            KNIGHT -> getKnightMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
-            PAWN -> getPawnMovements(piece, squareIndex, occupied, extractExtraFlags, onlyFirstMovement)
+            KING -> getKingMovements(piece, squareIndex, occupied, moveGenFlags)
+            QUEEN -> getQueenMovements(piece, squareIndex, occupied, moveGenFlags)
+            ROOK -> getRookMovements(piece, squareIndex, occupied, moveGenFlags)
+            BISHOP -> getBishopMovements(piece, squareIndex, occupied, moveGenFlags)
+            KNIGHT -> getKnightMovements(piece, squareIndex, occupied, moveGenFlags)
+            PAWN -> getPawnMovements(piece, squareIndex, occupied, moveGenFlags)
         }
     }
 
@@ -368,17 +359,16 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val targetSquares = KING_MOVE_MASK[fromSquare] and ownPieces.inv()
         val movementTargets = ArrayList<MovementTarget>()
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags, onlyFirstMovement)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, moveGenFlags)
         getCastlingMovements(
             fromPiece = piece,
             fromSquare = fromSquare,
             targets = movementTargets,
-            extractExtraFlags = extractExtraFlags
+            moveGenFlags = moveGenFlags
         )
         return PieceMovement(fromSquare, movementTargets)
     }
@@ -387,7 +377,7 @@ class Board : Copyable<Board> {
         fromPiece: Piece,
         fromSquare: Int,
         targets: MutableList<MovementTarget>,
-        extractExtraFlags: Boolean
+        moveGenFlags: Int
     ) {
         val cFlags = when (fromPiece.color) {
             WHITE -> castlingFlags and RANK_8.inv()
@@ -412,7 +402,7 @@ class Board : Copyable<Board> {
                 isLeftCastling = true,
                 isRightCastling = false,
                 targets = targets,
-                extractExtraFlags = extractExtraFlags
+                moveGenFlags = moveGenFlags
             )
         }
         val rightRookStartPosition = ULong.SIZE_BITS - rPositions.countTrailingZeroBits() - 1
@@ -430,7 +420,7 @@ class Board : Copyable<Board> {
                 isLeftCastling = false,
                 isRightCastling = true,
                 targets = targets,
-                extractExtraFlags = extractExtraFlags
+                moveGenFlags = moveGenFlags
             )
         }
     }
@@ -444,7 +434,7 @@ class Board : Copyable<Board> {
         isLeftCastling: Boolean,
         isRightCastling: Boolean,
         targets: MutableList<MovementTarget>,
-        extractExtraFlags: Boolean
+        moveGenFlags: Int
     ) {
         if (isSquareAttacked(kingFromSquare, king.color.opposite)) return
         val kingMoveDirection = if (kingFromSquare < kingFinalSquare) 1 else -1
@@ -464,7 +454,7 @@ class Board : Copyable<Board> {
         var flags = MovementFlags.CASTLING_MASK
         if (isLeftCastling) flags = flags or LEFT_CASTLING_MASK
         if (isRightCastling) flags = flags or RIGHT_CASTLING_MASK
-        if (extractExtraFlags) {
+        if (moveGenFlags and ALL_FLAGS != 0) {
             flags = flags or extractExtraMovementFlags(
                 fromSquare = kingFromSquare,
                 toSquare = rookFromSquare,
@@ -487,11 +477,10 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags, onlyFirstMovement)
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, moveGenFlags)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -499,11 +488,10 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags, onlyFirstMovement)
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, moveGenFlags)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -511,11 +499,10 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, extractExtraFlags, onlyFirstMovement)
+        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, moveGenFlags)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -524,11 +511,10 @@ class Board : Copyable<Board> {
         fromSquare: Int,
         ownPieces: ULong,
         movementTargets: ArrayList<MovementTarget>,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ) {
         val targetSquares = getSlidingPieceTargetSquares(piece, fromSquare, ownPieces)
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags, onlyFirstMovement)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, moveGenFlags)
     }
 
     private fun getSlidingPieceTargetSquares(piece: Piece, fromSquare: Int, ownPieces: ULong): ULong {
@@ -562,12 +548,11 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val targetSquares = KNIGHT_MOVE_MASK[fromSquare] and ownPieces.inv()
         val movementTargets = ArrayList<MovementTarget>()
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, extractExtraFlags, onlyFirstMovement)
+        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, moveGenFlags)
         return PieceMovement(fromSquare, movementTargets)
     }
 
@@ -575,12 +560,11 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         return when (piece.color) {
-            WHITE -> getWhitePawnMovements(piece, fromSquare, ownPieces, extractExtraFlags, onlyFirstMovement)
-            BLACK -> getBlackPawnMovements(piece, fromSquare, ownPieces, extractExtraFlags, onlyFirstMovement)
+            WHITE -> getWhitePawnMovements(piece, fromSquare, ownPieces, moveGenFlags)
+            BLACK -> getBlackPawnMovements(piece, fromSquare, ownPieces, moveGenFlags)
         }
     }
 
@@ -588,8 +572,7 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val targetSquares = getPawnTargetSquares(
             ownPieces,
@@ -602,8 +585,7 @@ class Board : Copyable<Board> {
             piece,
             fromSquare,
             targetSquares,
-            extractExtraFlags,
-            onlyFirstMovement
+            moveGenFlags
         )
     }
 
@@ -611,8 +593,7 @@ class Board : Copyable<Board> {
         piece: Piece,
         fromSquare: Int,
         ownPieces: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         val targetSquares = getPawnTargetSquares(
             ownPieces,
@@ -625,8 +606,7 @@ class Board : Copyable<Board> {
             piece,
             fromSquare,
             targetSquares,
-            extractExtraFlags,
-            onlyFirstMovement
+            moveGenFlags
         )
     }
 
@@ -648,8 +628,7 @@ class Board : Copyable<Board> {
         pawn: Piece,
         fromSquare: Int,
         targetSquares: ULong,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ): PieceMovement {
         var t = targetSquares
         val movementTargets = ArrayList<MovementTarget>()
@@ -675,7 +654,7 @@ class Board : Copyable<Board> {
                     if (isEnpassant) flags = flags or MovementFlags.EN_PASSANT_MASK
                     if (isCapture) flags = flags or MovementFlags.CAPTURE_MASK
                     if (isPromotion) flags = flags or MovementFlags.PROMOTION_MASK
-                    if (extractExtraFlags) {
+                    if (moveGenFlags and ALL_FLAGS != 0) {
                         flags = flags or extractExtraMovementFlags(
                             fromSquare = fromSquare,
                             toSquare = toSquare,
@@ -692,7 +671,7 @@ class Board : Copyable<Board> {
                         toSquare,
                         MovementFlags(flags)
                     )
-                    if (onlyFirstMovement) break
+                    if (moveGenFlags and ALL_MOVEMENTS == 0) break
                 }
             }
             t = t and FULL.shift(toSquare + 1)
@@ -715,8 +694,7 @@ class Board : Copyable<Board> {
         fromIndex: Int,
         targetSquares: ULong,
         movementTargets: ArrayList<MovementTarget>,
-        extractExtraFlags: Boolean,
-        onlyFirstMovement: Boolean
+        moveGenFlags: Int
     ) {
         var s = targetSquares
         while (s != EMPTY) {
@@ -733,7 +711,7 @@ class Board : Copyable<Board> {
             ) {
                 var flags = ZERO
                 if (isCapture) flags = flags or MovementFlags.CAPTURE_MASK
-                if (extractExtraFlags) {
+                if (moveGenFlags and ALL_FLAGS != 0) {
                     flags = flags or extractExtraMovementFlags(
                         fromSquare = fromIndex,
                         toSquare = toIndex,
@@ -750,7 +728,7 @@ class Board : Copyable<Board> {
                     toIndex,
                     MovementFlags(flags)
                 )
-                if (onlyFirstMovement) break
+                if (moveGenFlags and ALL_FLAGS == 0) break
             }
             s = s and FULL.shift(toIndex + 1)
         }
@@ -804,8 +782,7 @@ class Board : Copyable<Board> {
         val kingMovements = getMovements(
             piece = toPiece.oppositeKing,
             squareIndex = kingIndex,
-            extractExtraFlags = false,
-            onlyFirstMovement = true
+            moveGenFlags = 0
         )
         if (attackersCount == 2 && kingMovements.isEmpty()) {
             extraFlags = extraFlags or MovementFlags.CHECKMATE_MASK
@@ -813,8 +790,7 @@ class Board : Copyable<Board> {
             kingMovements.isEmpty()
             && getMovements(
                 color = toPiece.color.opposite,
-                extractExtraFlags = false,
-                onlyFirstMovement = true
+                moveGenFlags = 0
             ).isEmpty()
         ) {
             extraFlags = if (attackersCount > 0) {
@@ -1188,9 +1164,11 @@ class Board : Copyable<Board> {
     }
 
     companion object {
-
         @Suppress("SpellCheckingInspection")
         const val FEN_INITIAL = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+        private const val ALL_MOVEMENTS = 1
+        private const val ALL_FLAGS = 2
 
         private const val ZERO: ULong = 0u
         private const val EMPTY: ULong = ZERO
@@ -1222,26 +1200,4 @@ class Board : Copyable<Board> {
         private val LEFT_CASTLING_FINAL_POSITIONS = 0x3000000000000030uL
         private val RIGHT_CASTLING_FINAL_POSITIONS = 0x0600000000000006uL
     }
-}
-
-@ExperimentalStdlibApi
-fun main() {
-    val board = Board("k4rq1/8/8/8/8/8/7R/1Q5K w - - 0 1")
-    val movements = board.getMovements(Position.H5)
-    movements.forEachMovement {
-        println(it)
-    }
-//    val board = Board("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -")
-//    board.forEachMovement { move1 ->
-//        board.move(move1)
-//        board.forEachMovement { move2 ->
-//            board.move(move2)
-//            board.getMovements()
-//                .asSequenceOfMovements()
-//                .filter { it.flags.isCheckmate }
-//                .forEach { move3 -> println("$move1, $move2, $move3") }
-//            board.undo()
-//        }
-//        board.undo()
-//    }
 }
