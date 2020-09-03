@@ -439,18 +439,20 @@ class Board : Copyable<Board> {
         if (isSquareAttacked(kingFromSquare, king.color.opposite)) return
         val kingMoveDirection = if (kingFromSquare < kingFinalSquare) 1 else -1
         var kingPathSquare = kingFromSquare
-        val occupied = getOccupiedBitBoard() and (getPieceBitBoard(king.rook) or getPieceBitBoard(king)).inv()
-        do {
+        val occupied = getOccupiedBitBoard().and(
+            (getMaskedSquare(rookFromSquare) or getMaskedSquare(kingFromSquare)).inv()
+        )
+        while (kingPathSquare != kingFinalSquare) {
             kingPathSquare += kingMoveDirection
             if (isSquareAttacked(kingPathSquare, king.color.opposite)) return
             if (occupied and getMaskedSquare(kingPathSquare) != ZERO) return
-        } while (kingPathSquare != kingFinalSquare)
+        }
         val rookMoveDirection = if (rookFromSquare < rookFinalSquare) 1 else -1
         var rookPathSquare = rookFromSquare
-        do {
+        while (rookPathSquare != rookFinalSquare) {
             rookPathSquare += rookMoveDirection
             if (occupied and getMaskedSquare(rookPathSquare) != ZERO) return
-        } while (rookPathSquare != rookFinalSquare)
+        }
         var flags = MovementFlags.CASTLING_MASK
         if (isLeftCastling) flags = flags or LEFT_CASTLING_MASK
         if (isRightCastling) flags = flags or RIGHT_CASTLING_MASK
@@ -1028,10 +1030,10 @@ class Board : Copyable<Board> {
             val rookDestination = if (isLeftCastling) ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
             else finalPositions.countLeadingZeroBits()
 
-            setBitBoardBit(fromPiece, kingDestination, true)
-            setBitBoardBit(fromPiece.rook, rookDestination, true)
             setBitBoardBit(fromPiece, fromSquare, false)
             setBitBoardBit(fromPiece.rook, toSquare, false)
+            setBitBoardBit(fromPiece, kingDestination, true)
+            setBitBoardBit(fromPiece.rook, rookDestination, true)
         } else {
             setBitBoardBit(fromPiece, fromSquare, false)
             setBitBoardBit(toPiece, toSquare, true)
