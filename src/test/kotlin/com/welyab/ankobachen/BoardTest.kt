@@ -19,12 +19,14 @@ package com.welyab.ankobachen
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvFileSource
 
 @ExperimentalStdlibApi
 class BoardTest {
 
     @Test
-    fun `perft test depth 5 fen rnbqkbnr|pppppppp|8|8|8|8|PPPPPPPP|RNBQKBNR w KQkq - 0 1`() {
+    fun `test perft depth 5 fen rnbqkbnr|pppppppp|8|8|8|8|PPPPPPPP|RNBQKBNR w KQkq - 0 1`() {
         val expectedResult = """
             ┌───────┬─────────┬──────────┬─────────────┬───────────┬────────────┬────────┬─────────────┬─────────┬────────────┬────────────┐
             │ DEPTH │   NODES │ CAPTURES │ EN_PASSANTS │ CASTLINGS │ PROMOTIONS │ CHECKS │ DISCOVERIES │ DOUBLES │ CHECKMATES │ STALEMATES │
@@ -50,7 +52,7 @@ class BoardTest {
     }
 
     @Test
-    fun `perft test depth 4 fen r3k2r|p1ppqpb1|bn2pnp1|3PN3|1p2P3|2N2Q1p|PPPBBPPP|R3K2R w KQkq -`() {
+    fun `test perft depth 4 fen r3k2r|p1ppqpb1|bn2pnp1|3PN3|1p2P3|2N2Q1p|PPPBBPPP|R3K2R w KQkq -`() {
         val expectedResult = """
             ┌───────┬─────────┬──────────┬─────────────┬───────────┬────────────┬────────┬─────────────┬─────────┬────────────┬────────────┐
             │ DEPTH │   NODES │ CAPTURES │ EN_PASSANTS │ CASTLINGS │ PROMOTIONS │ CHECKS │ DISCOVERIES │ DOUBLES │ CHECKMATES │ STALEMATES │
@@ -74,7 +76,7 @@ class BoardTest {
     }
 
     @Test
-    fun `perft test depth 6 fen 8|2p5|3p4|KP5r|1R3p1k|8|4P1P1|8 w - -`() {
+    fun `test perft depth 6 fen 8|2p5|3p4|KP5r|1R3p1k|8|4P1P1|8 w - -`() {
         val expectedResult = """
             ┌───────┬──────────┬──────────┬─────────────┬───────────┬────────────┬────────┬─────────────┬─────────┬────────────┬────────────┐
             │ DEPTH │    NODES │ CAPTURES │ EN_PASSANTS │ CASTLINGS │ PROMOTIONS │ CHECKS │ DISCOVERIES │ DOUBLES │ CHECKMATES │ STALEMATES │
@@ -102,7 +104,7 @@ class BoardTest {
     }
 
     @Test
-    fun `perft test depth 4 fen r2q1rk1|pP1p2pp|Q4n2|bbp1p3|Np6|1B3NBn|pPPP1PPP|R3K2R b KQ - 0 1`() {
+    fun `test perft depth 4 fen r2q1rk1|pP1p2pp|Q4n2|bbp1p3|Np6|1B3NBn|pPPP1PPP|R3K2R b KQ - 0 1`() {
         val expectedResult = """
             ┌───────┬────────┬──────────┬─────────────┬───────────┬────────────┬────────┬─────────────┬─────────┬────────────┬────────────┐
             │ DEPTH │  NODES │ CAPTURES │ EN_PASSANTS │ CASTLINGS │ PROMOTIONS │ CHECKS │ DISCOVERIES │ DOUBLES │ CHECKMATES │ STALEMATES │
@@ -123,5 +125,26 @@ class BoardTest {
         )
         val result = calculator.getPerftResult().toString()
         assertEquals(expectedResult, result)
+    }
+
+    @ParameterizedTest
+    @CsvFileSource(
+        resources = ["/chess960/perft-results.csv"],
+        delimiter = '\t'
+    )
+    fun `test Chess 960 positions`(
+        fen: String,
+        totalNodesdepth1: Long,
+        totalNodesDepth2: Long,
+        totalNodesDepth3: Long,
+        totalNodesDepth4: Long,
+        totalNodesDepth5: Long,
+        totalNodesDepth6: Long
+    ) {
+        val perftResult = PerftCalculator(fen, depth = 4).getPerftResult()
+        assertEquals(totalNodesdepth1, perftResult.getPeftValue(1, PerftValue.NODES))
+        assertEquals(totalNodesDepth2, perftResult.getPeftValue(2, PerftValue.NODES))
+        assertEquals(totalNodesDepth3, perftResult.getPeftValue(3, PerftValue.NODES))
+        assertEquals(totalNodesDepth4, perftResult.getPeftValue(4, PerftValue.NODES))
     }
 }

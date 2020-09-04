@@ -105,6 +105,24 @@ enum class Position(
 
     companion object {
 
+        val RANK_1 = 1
+        val RANK_2 = 2
+        val RANK_3 = 3
+        val RANK_4 = 4
+        val RANK_5 = 5
+        val RANK_6 = 6
+        val RANK_7 = 7
+        val RANK_8 = 8
+
+        val FILE_A = 'a'
+        val FILE_B = 'b'
+        val FILE_C = 'c'
+        val FILE_D = 'd'
+        val FILE_E = 'e'
+        val FILE_F = 'f'
+        val FILE_G = 'g'
+        val FILE_H = 'h'
+
         private val positionsCache = arrayOf(
             arrayOf(A8, B8, C8, D8, E8, F8, G8, H8),
             arrayOf(A7, B7, C7, D7, E7, F7, G7, H7),

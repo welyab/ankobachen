@@ -33,8 +33,6 @@ import com.welyab.ankobachen.BitboardUtil.getWhitePawnDoubleMoveMask
 import com.welyab.ankobachen.BitboardUtil.getWhitePawnSingleMoveMask
 import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
-import com.welyab.ankobachen.MovementFlags.Companion.LEFT_CASTLING_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.RIGHT_CASTLING_MASK
 import com.welyab.ankobachen.Piece.BLACK_BISHOP
 import com.welyab.ankobachen.Piece.BLACK_KING
 import com.welyab.ankobachen.Piece.BLACK_KNIGHT
@@ -103,7 +101,6 @@ class Board : Copyable<Board> {
     private var halfMoveClock: Int = 0
     private var fullMoveCounter: Int = 0
     private var epTargetSquare: ULong = 0uL
-    private var rookPositions: ULong = 0uL
     private var castlingFlags = 0uL
     private val moveLog = ArrayList<MoveLog>()
 
@@ -237,7 +234,7 @@ class Board : Copyable<Board> {
 
     fun undo() {
         val log = moveLog.removeLast()
-        for(entry in log.bits) {
+        for (entry in log.bits) {
             setBitBoard(entry.key, entry.value)
         }
         halfMoveClock = log.halfMoveCounter
@@ -264,34 +261,18 @@ class Board : Copyable<Board> {
         plyCounter = 0
 
         castlingFlags = ZERO
-        rookPositions = ZERO
 
-        if (fenInfo.castlingFlags.leftWhiteRook != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.leftWhiteRook.squareIndex)
-            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.leftWhiteRook.squareIndex)
-        } else {
-            rookPositions = rookPositions or getMaskedSquare(Position.A1.squareIndex)
+        if (fenInfo.castlingFlags.whiteRookOne != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.whiteRookOne.squareIndex)
         }
-
-        if (fenInfo.castlingFlags.rightWhiteRook != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.rightWhiteRook.squareIndex)
-            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.rightWhiteRook.squareIndex)
-        } else {
-            rookPositions = rookPositions or getMaskedSquare(Position.H1.squareIndex)
+        if (fenInfo.castlingFlags.whiteRookTwo != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.whiteRookTwo.squareIndex)
         }
-
-        if (fenInfo.castlingFlags.leftBlackRook != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.leftBlackRook.squareIndex)
-            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.leftBlackRook.squareIndex)
-        } else {
-            rookPositions = rookPositions or getMaskedSquare(Position.A8.squareIndex)
+        if (fenInfo.castlingFlags.blackRookOne != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.blackRookOne.squareIndex)
         }
-
-        if (fenInfo.castlingFlags.rightBlackRook != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.rightBlackRook.squareIndex)
-            rookPositions = rookPositions or getMaskedSquare(fenInfo.castlingFlags.rightBlackRook.squareIndex)
-        } else {
-            rookPositions = rookPositions or getMaskedSquare(Position.H8.squareIndex)
+        if (fenInfo.castlingFlags.blackRookTwo != null) {
+            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.blackRookTwo.squareIndex)
         }
     }
 
@@ -365,7 +346,7 @@ class Board : Copyable<Board> {
         val movementTargets = ArrayList<MovementTarget>()
         mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, moveGenFlags)
         getCastlingMovements(
-            fromPiece = piece,
+            kingFrom = piece,
             fromSquare = fromSquare,
             targets = movementTargets,
             moveGenFlags = moveGenFlags
@@ -374,54 +355,46 @@ class Board : Copyable<Board> {
     }
 
     private fun getCastlingMovements(
-        fromPiece: Piece,
+        kingFrom: Piece,
         fromSquare: Int,
         targets: MutableList<MovementTarget>,
         moveGenFlags: Int
     ) {
-        val cFlags = when (fromPiece.color) {
+        var cFlags = when (kingFrom.color) {
             WHITE -> castlingFlags and RANK_8.inv()
             BLACK -> castlingFlags and RANK_1.inv()
         }
-        val rPositions = when (fromPiece.color) {
-            WHITE -> rookPositions and RANK_8.inv()
-            BLACK -> rookPositions and RANK_1.inv()
-        }
-        val leftRookStartPosition = rPositions.countLeadingZeroBits()
-        if (cFlags and getMaskedSquare(leftRookStartPosition) != ZERO) {
-            val kingRookFinalPositions = when (fromPiece.color) {
-                WHITE -> LEFT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
-                BLACK -> LEFT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
-            }
+        while (cFlags != ZERO) {
+            val rookFrom = cFlags.countLeadingZeroBits()
             getCastlingMovements(
-                king = fromPiece,
+                king = kingFrom,
                 kingFromSquare = fromSquare,
-                kingFinalSquare = kingRookFinalPositions.countLeadingZeroBits(),
-                rookFromSquare = leftRookStartPosition,
-                rookFinalSquare = ULong.SIZE_BITS - kingRookFinalPositions.countTrailingZeroBits() - 1,
-                isLeftCastling = true,
-                isRightCastling = false,
+                kingFinalSquare = getKingCastlingFinalSquare(kingFrom.color, fromSquare, rookFrom),
+                rookFromSquare = rookFrom,
+                rookFinalSquare = getRookCastlingFinalSquare(kingFrom.color, fromSquare, rookFrom),
                 targets = targets,
                 moveGenFlags = moveGenFlags
             )
+            if (moveGenFlags and ALL_MOVEMENTS == 0 && targets.isNotEmpty()) break
+            cFlags = cFlags and FULL.shift(rookFrom + 1)
         }
-        val rightRookStartPosition = ULong.SIZE_BITS - rPositions.countTrailingZeroBits() - 1
-        if (cFlags and getMaskedSquare(rightRookStartPosition) != ZERO) {
-            val kingRookFinalPositions = when (fromPiece.color) {
-                WHITE -> RIGHT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
-                BLACK -> RIGHT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
-            }
-            getCastlingMovements(
-                king = fromPiece,
-                kingFromSquare = fromSquare,
-                kingFinalSquare = ULong.SIZE_BITS - kingRookFinalPositions.countTrailingZeroBits() - 1,
-                rookFromSquare = rightRookStartPosition,
-                rookFinalSquare = kingRookFinalPositions.countLeadingZeroBits(),
-                isLeftCastling = false,
-                isRightCastling = true,
-                targets = targets,
-                moveGenFlags = moveGenFlags
-            )
+    }
+
+    private fun getKingCastlingFinalSquare(color: Color, kingFrom: Int, rookFrom: Int): Int {
+        return when (color) {
+            WHITE -> if (kingFrom < rookFrom) Position.G1.squareIndex
+            else Position.C1.squareIndex
+            BLACK -> if (kingFrom < rookFrom) Position.G8.squareIndex
+            else Position.C8.squareIndex
+        }
+    }
+
+    private fun getRookCastlingFinalSquare(color: Color, kingFrom: Int, rookFrom: Int): Int {
+        return when (color) {
+            WHITE -> if (kingFrom < rookFrom) Position.F1.squareIndex
+            else Position.D1.squareIndex
+            BLACK -> if (kingFrom < rookFrom) Position.F8.squareIndex
+            else Position.D8.squareIndex
         }
     }
 
@@ -431,8 +404,28 @@ class Board : Copyable<Board> {
         kingFinalSquare: Int,
         rookFromSquare: Int,
         rookFinalSquare: Int,
-        isLeftCastling: Boolean,
-        isRightCastling: Boolean,
+        targets: MutableList<MovementTarget>,
+        moveGenFlags: Int
+    ) {
+        setBitBoardBit(king.rook, rookFromSquare, false)
+        getCastlingMovements2(
+            king,
+            kingFromSquare,
+            kingFinalSquare,
+            rookFromSquare,
+            rookFinalSquare,
+            targets,
+            moveGenFlags
+        )
+        setBitBoardBit(king.rook, rookFromSquare, true)
+    }
+
+    private fun getCastlingMovements2(
+        king: Piece,
+        kingFromSquare: Int,
+        kingFinalSquare: Int,
+        rookFromSquare: Int,
+        rookFinalSquare: Int,
         targets: MutableList<MovementTarget>,
         moveGenFlags: Int
     ) {
@@ -454,15 +447,12 @@ class Board : Copyable<Board> {
             if (occupied and getMaskedSquare(rookPathSquare) != ZERO) return
         }
         var flags = MovementFlags.CASTLING_MASK
-        if (isLeftCastling) flags = flags or LEFT_CASTLING_MASK
-        if (isRightCastling) flags = flags or RIGHT_CASTLING_MASK
         if (moveGenFlags and ALL_FLAGS != 0) {
             flags = flags or extractExtraMovementFlags(
                 fromSquare = kingFromSquare,
                 toSquare = rookFromSquare,
                 toPiece = king,
-                isLeftCastling = isLeftCastling,
-                isRightCastling = isRightCastling,
+                isCastling = true,
                 isEnPassant = false,
                 isCapture = false,
                 isPromotion = false
@@ -661,8 +651,7 @@ class Board : Copyable<Board> {
                             fromSquare = fromSquare,
                             toSquare = toSquare,
                             toPiece = targetPiece,
-                            isLeftCastling = false,
-                            isRightCastling = false,
+                            isCastling = false,
                             isEnPassant = isEnpassant,
                             isCapture = isCapture,
                             isPromotion = isPromotion
@@ -718,8 +707,7 @@ class Board : Copyable<Board> {
                         fromSquare = fromIndex,
                         toSquare = toIndex,
                         toPiece = piece,
-                        isLeftCastling = false,
-                        isRightCastling = false,
+                        isCastling = false,
                         isEnPassant = false,
                         isCapture = isCapture,
                         isPromotion = false
@@ -740,20 +728,16 @@ class Board : Copyable<Board> {
         fromSquare: Int,
         toSquare: Int,
         toPiece: Piece,
-        isLeftCastling: Boolean,
-        isRightCastling: Boolean,
+        isCastling: Boolean,
         isEnPassant: Boolean,
         isCapture: Boolean,
         isPromotion: Boolean
     ): ULong {
-//        if(true) return 0uL
-
         move(
             fromSquare = fromSquare,
             toSquare = toSquare,
             toPiece = toPiece,
-            isLeftCastling = isLeftCastling,
-            isRightCastling = isRightCastling,
+            isCastling = isCastling,
             isEnPassant = isEnPassant,
             isCapture = isCapture,
             isPromotion = isPromotion
@@ -817,8 +801,7 @@ class Board : Copyable<Board> {
             fromSquare = fromSquare,
             toSquare = toSquare,
             toPiece = toPiece,
-            isLeftCastling = false,
-            isRightCastling = false,
+            isCastling = false,
             isEnPassant = isEnPassant,
             isCapture = isCapture,
             isPromotion = false
@@ -978,8 +961,7 @@ class Board : Copyable<Board> {
             fromSquare = fromSquare,
             toSquare = toSquare,
             toPiece = toPiece,
-            isLeftCastling = flags.isLeftCastling,
-            isRightCastling = flags.isRightCastling,
+            isCastling = flags.isCastling,
             isEnPassant = flags.isEnPassant,
             isCapture = flags.isCapture,
             isPromotion = flags.isPromotion
@@ -990,8 +972,7 @@ class Board : Copyable<Board> {
         fromSquare: Int,
         toSquare: Int,
         toPiece: Piece,
-        isLeftCastling: Boolean,
-        isRightCastling: Boolean,
+        isCastling: Boolean,
         isEnPassant: Boolean,
         isCapture: Boolean,
         isPromotion: Boolean
@@ -1006,9 +987,9 @@ class Board : Copyable<Board> {
 
         val map = HashMap<Piece, ULong>()
         map[fromPiece] = getPieceBitBoard(fromPiece)
-        if(capturedPiece != null) map[capturedPiece] = getPieceBitBoard(capturedPiece)
-        if(isLeftCastling || isRightCastling) map[fromPiece.rook] = getPieceBitBoard(fromPiece.rook)
-        if(isPromotion) map[toPiece] = getPieceBitBoard(toPiece)
+        if (capturedPiece != null) map[capturedPiece] = getPieceBitBoard(capturedPiece)
+        if (isCastling) map[fromPiece.rook] = getPieceBitBoard(fromPiece.rook)
+        if (isPromotion) map[toPiece] = getPieceBitBoard(toPiece)
         moveLog += MoveLog(
             bits = map,
             halfMoveCounter = halfMoveClock,
@@ -1016,20 +997,9 @@ class Board : Copyable<Board> {
             castlingFlags = castlingFlags
         )
 
-        if (isLeftCastling || isRightCastling) {
-            val finalPositions = when (fromPiece.color) {
-                WHITE -> if (isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
-                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_8.inv()
-                BLACK -> if (isLeftCastling) LEFT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
-                else RIGHT_CASTLING_FINAL_POSITIONS and RANK_1.inv()
-            }
-
-            val kingDestination = if (isLeftCastling) finalPositions.countLeadingZeroBits()
-            else ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
-
-            val rookDestination = if (isLeftCastling) ULong.SIZE_BITS - finalPositions.countTrailingZeroBits() - 1
-            else finalPositions.countLeadingZeroBits()
-
+        if (isCastling) {
+            val kingDestination = getKingCastlingFinalSquare(fromPiece.color, fromSquare, toSquare)
+            val rookDestination = getRookCastlingFinalSquare(fromPiece.color, fromSquare, toSquare)
             setBitBoardBit(fromPiece, fromSquare, false)
             setBitBoardBit(fromPiece.rook, toSquare, false)
             setBitBoardBit(fromPiece, kingDestination, true)
@@ -1103,7 +1073,6 @@ class Board : Copyable<Board> {
         copy.halfMoveClock = halfMoveClock
         copy.fullMoveCounter = fullMoveCounter
         copy.epTargetSquare = epTargetSquare
-        copy.rookPositions = rookPositions
         copy.castlingFlags = castlingFlags
 
         copy.moveLog.addAll(moveLog)
@@ -1134,7 +1103,6 @@ class Board : Copyable<Board> {
         if (halfMoveClock != other.halfMoveClock) return false
         if (fullMoveCounter != other.fullMoveCounter) return false
         if (epTargetSquare != other.epTargetSquare) return false
-        if (rookPositions != other.rookPositions) return false
         if (castlingFlags != other.castlingFlags) return false
         if (moveLog != other.moveLog) return false
 
@@ -1159,7 +1127,6 @@ class Board : Copyable<Board> {
         result = 31 * result + halfMoveClock
         result = 31 * result + fullMoveCounter
         result = 31 * result + epTargetSquare.hashCode()
-        result = 31 * result + rookPositions.hashCode()
         result = 31 * result + castlingFlags.hashCode()
         result = 31 * result + moveLog.hashCode()
         return result

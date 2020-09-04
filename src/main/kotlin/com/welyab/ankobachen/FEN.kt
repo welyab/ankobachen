@@ -15,24 +15,25 @@
  */
 package com.welyab.ankobachen
 
+import com.welyab.ankobachen.Piece.BLACK_ROOK
+import com.welyab.ankobachen.Piece.Companion.BLACK_KING_LETTER
+import com.welyab.ankobachen.Piece.Companion.BLACK_QUEEN_LETTER
+import com.welyab.ankobachen.Piece.Companion.WHITE_KING_LETTER
+import com.welyab.ankobachen.Piece.Companion.WHITE_QUEEN_LETTER
+import com.welyab.ankobachen.Piece.WHITE_ROOK
+import com.welyab.ankobachen.Position.Companion.RANK_1
+import com.welyab.ankobachen.Position.Companion.RANK_8
+
 class FenException(message: String, cause: Throwable? = null) : ChessException(message, cause)
-
-private const val FEN_WHITE_KING_SIDE_CASTLING_FLAG = 'K'
-private const val FEN_WHITE_QUEEN_SIDE_CASTLING_FLAG = 'Q'
-private const val FEN_BLACK_KING_SIDE_CASTLING_FLAG = 'k'
-private const val FEN_BLACK_QUEEN_SIDE_CASTLING_FLAG = 'q'
-
-private const val WHITE_ROOK_LETTER = 'R'
-private const val BLACK_ROOK_LETTER = 'r'
 
 const val FEN_DEFAULT_HALF_MOVE_CLOCK = 0
 const val FEN_DEFAULT_FULL_MOVE_COUNTER = 1
 
 class CastlingFlags(
-    val leftWhiteRook: Position? = null,
-    val rightWhiteRook: Position? = null,
-    val leftBlackRook: Position? = null,
-    val rightBlackRook: Position? = null
+    val whiteRookOne: Position? = null,
+    val whiteRookTwo: Position? = null,
+    val blackRookOne: Position? = null,
+    val blackRookTwo: Position? = null
 )
 
 data class FenInfo(
@@ -44,7 +45,7 @@ data class FenInfo(
     val fullMoveCounter: Int
 )
 
-class FenString(val fen: String, val chessVariant: ChessVariant = ChessVariant.STANDARD) {
+class FenString(val fen: String) {
 
     private var fenInfo: FenInfo? = null
 
@@ -129,93 +130,111 @@ class FenString(val fen: String, val chessVariant: ChessVariant = ChessVariant.S
         else throw FenException("Invalid fen \"$fen\". Invalid side to move: $sideToMovePart")
 
     private fun parseCastlingFlags(
-        castlingFlagsPart: String?, piecesDisposition: List<PieceLocation>): CastlingFlags {
+        castlingFlagsPart: String?,
+        piecesDisposition: List<PieceLocation>
+    ): CastlingFlags {
         if (castlingFlagsPart == null || castlingFlagsPart == "-") return CastlingFlags()
+        return if (
+            castlingFlagsPart
+                .asSequence()
+                .all { it in 'a'..'h' || it in 'A'..'H' }
+        ) parseShredderFenCastlingFlags(castlingFlagsPart)
+        else parseFenCastlingFlags(castlingFlagsPart, piecesDisposition)
+    }
 
+    private fun parseFenCastlingFlags(
+        castlingFlagsPart: String,
+        piecesDisposition: List<PieceLocation>
+    ): CastlingFlags {
+        val whiteRooks = ArrayList<Position>()
+        val blackRooks = ArrayList<Position>()
         var index = 0
-        var invalidFagsForSetup = false
-        var leftWhiteRook: Position? = null
-        var rightWhiteRook: Position? = null
-        var leftBlackRook: Position? = null
-        var rightBlackRook: Position? = null
-
-        if (
-            !invalidFagsForSetup
-            && castlingFlagsPart[index] == FEN_WHITE_KING_SIDE_CASTLING_FLAG
-        ) {
-            val columnIndex = piecesDisposition
-                .asSequence()
-                .filter { it.position.row == 7 }
-                .lastOrNull { it.piece.letter == WHITE_ROOK_LETTER }
-            index++
-
-            if (columnIndex != null) {
-                rightWhiteRook = columnIndex.position
-            } else {
-                invalidFagsForSetup = true
+        castlingFlagsPart
+            .elementAtOrNull(index)
+            ?.takeIf { it == WHITE_KING_LETTER }
+            ?.also { index++ }
+            .let {
+                piecesDisposition
+                    .asSequence()
+                    .filter { p -> p.position.rank == RANK_1 }
+                    .findLast { p -> p.piece == WHITE_ROOK }
+                    ?.position
             }
-        }
-        if (
-            !invalidFagsForSetup
-            && index < castlingFlagsPart.length && castlingFlagsPart[index] == FEN_WHITE_QUEEN_SIDE_CASTLING_FLAG
-        ) {
-            val columnIndex = piecesDisposition
-                .asSequence()
-                .filter { it.position.row == 7 }
-                .firstOrNull { it.piece.letter == WHITE_ROOK_LETTER }
-            index++
+            ?.also { whiteRooks += it }
 
-            if (columnIndex != null) {
-                leftWhiteRook = columnIndex.position
-            } else {
-                invalidFagsForSetup = true
+        castlingFlagsPart
+            .elementAtOrNull(index)
+            ?.takeIf { it == WHITE_QUEEN_LETTER }
+            ?.also { index++ }
+            .let {
+                piecesDisposition
+                    .asSequence()
+                    .filter { p -> p.position.rank == RANK_1 }
+                    .find { p -> p.piece == WHITE_ROOK }
+                    ?.position
             }
-        }
-        if (
-            !invalidFagsForSetup
-            && index < castlingFlagsPart.length && castlingFlagsPart[index] == FEN_BLACK_KING_SIDE_CASTLING_FLAG
-        ) {
-            val columnIndex = piecesDisposition
-                .asSequence()
-                .filter { it.position.row == 0 }
-                .lastOrNull { it.piece.letter == BLACK_ROOK_LETTER }
-            index++
+            ?.also { whiteRooks += it }
 
-            if (columnIndex != null) {
-                rightBlackRook = columnIndex.position
-            } else {
-                invalidFagsForSetup = true
+        castlingFlagsPart
+            .elementAtOrNull(index)
+            ?.takeIf { it == BLACK_KING_LETTER }
+            ?.also { index++ }
+            .let {
+                piecesDisposition
+                    .asSequence()
+                    .filter { p -> p.position.rank == RANK_8 }
+                    .findLast { p -> p.piece == BLACK_ROOK }
+                    ?.position
             }
-        }
-        if (
-            !invalidFagsForSetup
-            && index < castlingFlagsPart.length && castlingFlagsPart[index] == FEN_BLACK_QUEEN_SIDE_CASTLING_FLAG
-        ) {
-            val columnIndex = piecesDisposition
-                .asSequence()
-                .filter { it.position.row == 0 }
-                .firstOrNull { it.piece.letter == BLACK_ROOK_LETTER }
-            index++
+            ?.also { blackRooks += it }
 
-            if (columnIndex != null) {
-                leftBlackRook = columnIndex.position
-            } else {
-                invalidFagsForSetup = true
+        castlingFlagsPart
+            .elementAtOrNull(index)
+            ?.takeIf { it == BLACK_QUEEN_LETTER }
+            ?.also { index++ }
+            .let {
+                piecesDisposition
+                    .asSequence()
+                    .filter { p -> p.position.rank == RANK_8 }
+                    .find { p -> p.piece == BLACK_ROOK }
+                    ?.position
             }
-        }
+            ?.also { blackRooks += it }
 
-        if (invalidFagsForSetup) throw FenException(
-            "Invalid fen \"$fen\". Invalid castling flags '$castlingFlagsPart'"
-        )
-
-        if (index != castlingFlagsPart.length)
-            throw FenException("Invalid fen \"$fen\". Invalid castling flags: $castlingFlagsPart")
+        if(castlingFlagsPart.length != index) throw FenException("Invalid castling flags: $castlingFlagsPart")
 
         return CastlingFlags(
-            leftWhiteRook,
-            rightWhiteRook,
-            leftBlackRook,
-            rightBlackRook
+            whiteRookOne = whiteRooks.elementAtOrNull(0),
+            whiteRookTwo = whiteRooks.elementAtOrNull(1),
+            blackRookOne = blackRooks.elementAtOrNull(0),
+            blackRookTwo = blackRooks.elementAtOrNull(1)
+        )
+    }
+
+    private fun parseShredderFenCastlingFlags(castlingFlagsPart: String): CastlingFlags {
+        val whiteRooks = ArrayList<Position>()
+        val blackRooks = ArrayList<Position>()
+        val error = FenException("Invalid castling flags: $castlingFlagsPart")
+        castlingFlagsPart.forEach { flag ->
+            when (flag) {
+                in 'a'..'h' -> {
+                    val position = Position.from(flag, RANK_8)
+                    if (blackRooks.size > 2) throw error
+                    blackRooks += position
+                }
+                in 'A'..'H' -> {
+                    val position = Position.from(flag.toLowerCase(), RANK_1)
+                    if (whiteRooks.size > 2) throw error
+                    whiteRooks += position
+                }
+                else -> throw BoardException("Invalid castling flags: $castlingFlagsPart")
+            }
+        }
+        return CastlingFlags(
+            whiteRookOne = whiteRooks.elementAtOrNull(0),
+            whiteRookTwo = whiteRooks.elementAtOrNull(1),
+            blackRookOne = blackRooks.elementAtOrNull(0),
+            blackRookTwo = blackRooks.elementAtOrNull(1)
         )
     }
 

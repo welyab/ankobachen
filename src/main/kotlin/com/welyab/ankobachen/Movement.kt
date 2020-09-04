@@ -29,9 +29,6 @@ class MovementFlags(val flags: ULong) {
     val isDoubleCheck    inline get() = flags.and(DOUBLE_CHECK_MASK)    != 0uL
     val isCheckmate      inline get() = flags.and(CHECKMATE_MASK)       != 0uL
     val isStalemate      inline get() = flags.and(STALEMATE_MASK)       != 0uL
-
-    val isLeftCastling   inline get() = flags and LEFT_CASTLING_MASK    != 0uL
-    val isRightCastling  inline get() = flags and RIGHT_CASTLING_MASK   != 0uL
     //@formatter:on
 
     override fun toString(): String =
@@ -39,8 +36,7 @@ class MovementFlags(val flags: ULong) {
             .apply {
                 if (isCapture) add("capture")
                 if (isEnPassant) add("enPassant")
-                if (isLeftCastling) add("left castling")
-                if (isRightCastling) add("right castling")
+                if (isCastling) add("castling")
                 if (isPromotion) add("promotion")
                 if (isCheck) add("check")
                 if (isDiscoveryCheck) add("discoveryCheck")
@@ -63,9 +59,6 @@ class MovementFlags(val flags: ULong) {
         const val DOUBLE_CHECK_MASK    = 0b000000000000000001000000uL
         const val CHECKMATE_MASK       = 0b000000000000000010000000uL
         const val STALEMATE_MASK       = 0b000000000000000100000000uL
-
-        const val LEFT_CASTLING_MASK   = 0b000000000000001000000000uL
-        const val RIGHT_CASTLING_MASK  = 0b000000000000010000000000uL
         //@formatter:on
     }
 }
