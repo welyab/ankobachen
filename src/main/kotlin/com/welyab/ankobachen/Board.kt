@@ -201,18 +201,25 @@ class Board : Copyable<Board> {
 
     fun setFen(fen: String): Unit = setFen(FenString(fen))
 
-    fun getActivePieceLocations(): List<PieceLocation> = getPieceLocations2(sideToMove)
     fun getPieceLocations(): List<PieceLocation> = getPieceLocations2(BLACK) + getPieceLocations2(WHITE)
-    fun getPieceLocations(color: Color): List<PieceLocation> = getPieceLocations2(color)
+    fun getPieceLocations(color: Color = sideToMove): List<PieceLocation> = getPieceLocations2(color)
 
     fun getMovements(position: Position): Movements = getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
     fun getMovements(color: Color = sideToMove): Movements = getMovements(color, ALL_FLAGS or ALL_MOVEMENTS)
-    fun getMovementRandom(): Movement = getMovements(sideToMove, ALL_FLAGS or ALL_MOVEMENTS).getRandomMovement()
+    fun getRandomMovement(): Movement = getMovements(sideToMove, ALL_FLAGS or ALL_MOVEMENTS).getRandomMovement()
     fun forEachMovement(visitor: (Movement) -> Unit) {
         getMovements().forEachMovement { visitor.invoke(it) }
     }
 
-    fun moveRandom(): Unit = move(getMovementRandom())
+    fun withinEachMovement(visitor: Board.() -> Unit) {
+        forEachMovement { movement ->
+            move(movement)
+            this.visitor()
+            undo()
+        }
+    }
+
+    fun moveRandom(): Unit = move(getRandomMovement())
     fun move(movement: Movement) = move(movement.from, movement.to, movement.toPiece, movement.flags)
     fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
         val movement = getMovements(from.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
@@ -996,7 +1003,6 @@ class Board : Copyable<Board> {
             epTargetSquare = epTargetSquare,
             castlingFlags = castlingFlags
         )
-
         if (isCastling) {
             val kingDestination = getKingCastlingFinalSquare(fromPiece.color, fromSquare, toSquare)
             val rookDestination = getRookCastlingFinalSquare(fromPiece.color, fromSquare, toSquare)
@@ -1015,7 +1021,6 @@ class Board : Copyable<Board> {
                 )
             }
         }
-
         if (fromPiece.isKing) {
             castlingFlags = when (fromPiece.color) {
                 WHITE -> castlingFlags and RANK_1.inv()
@@ -1027,7 +1032,6 @@ class Board : Copyable<Board> {
         if (capturedPiece != null && capturedPiece.isRook) {
             castlingFlags = castlingFlags and getMaskedSquare(toSquare).inv()
         }
-
         epTargetSquare =
             if (fromPiece.isPawn && (fromSquare - toSquare).absoluteValue == 16)
                 when (fromPiece.color) {
@@ -1036,11 +1040,8 @@ class Board : Copyable<Board> {
                 }
             else EMPTY
 
-        halfMoveClock = if (fromPiece.isPawn || isCapture) halfMoveClock + 1
-        else 0
-
+        halfMoveClock = if (fromPiece.isPawn || isCapture) halfMoveClock + 1 else 0
         if (sideToMove.isBlack) fullMoveCounter++
-
         plyCounter++
         sideToMove = sideToMove.opposite
     }
