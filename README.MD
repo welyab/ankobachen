@@ -1,12 +1,16 @@
 # AN.KO.BA.CH.EN
-___
 
-This is a hobbyist chess engine software primarily programmed in Kotlin. **AN.KO.BA.CH.EN** is just an acronym for **Another Kotlin Based Chess Engine**. 
+**AN.KO.BA.CH.EN** is just an acronym for **Another Kotlin Based Chess Engine**. This is a hobbyist chess engine software primarily programmed in Kotlin.
 
-The features are:
+## Structure
+
+* Board representation: [bitboards](https://www.chessprogramming.org/Bitboards)
+* Movement calculation: [magic bitboards](https://www.chessprogramming.org/Magic_Bitboards)
+
+## Features
 
 - [x] Movement generation
-- [ ] FEN string parsing and generation
+- [x] FEN string parsing and generation
 - [ ] PERFT calculation and movement enumeration
 - [ ] Image and text based board export
 - [ ] PGN file reader and writer
@@ -15,16 +19,22 @@ The features are:
 
 ## Get started
 
-Creating board
+### Creating board
+
+The board doesn't differentiate standard chess and 960 variant for movement generation. It is possible to create boards using [FEN](https://www.chessprogramming.org/Forsyth-Edwards_Notation) and [Shredder-FEN](https://www.chessprogramming.org/Forsyth-Edwards_Notation#Shredder-FEN) strings. 
 
 ```kotlin
-val board = Board()
-board.forEachMovement { move ->
-    println(move)
-}
+// with standard piece disposition
+val board1 = Board()
+
+// with an initial piece setup of Chess 960 variant
+val board2 = Board("nbnrbkqr/pppppppp/8/8/8/8/PPPPPPPP/NBNRBKQR w KQkq -")
+
+// Philidor's mate
+val board3 = Board("6rk/5Npp/8/8/8/8/1K6/8 w - - 0 1")
 ```
 
-Making movements
+### Making movements
 
 ```kotlin
 val board = Board()
