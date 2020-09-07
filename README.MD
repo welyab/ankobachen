@@ -36,6 +36,8 @@ val board3 = Board("6rk/5Npp/8/8/8/8/1K6/8 w - - 0 1")
 
 ### Making movements
 
+The movements can be made as simple as defining the origin and target squares. In order to make castling, when available, move the king on to square of participating rook piece.
+
 ```kotlin
 val board = Board()
 // ruy lopez opening
@@ -46,28 +48,36 @@ board.move(B8, C6)
 board.move(F1, B5)
 println(board)
 ```
-```text
-output:
-┌───┬───┬───┬───┬───┬───┬───┬───┐
-│ r │   │ b │ q │ k │ b │ n │ r │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│ p │ p │ p │ p │   │ p │ p │ p │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│   │   │ n │   │   │   │   │   │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│   │ B │   │   │ p │   │   │   │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│   │   │   │   │ P │   │   │   │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│   │   │   │   │   │ N │   │   │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│ P │ P │ P │ P │   │ P │ P │ P │
-├───┼───┼───┼───┼───┼───┼───┼───┤
-│ R │ N │ B │ Q │ K │   │   │ R │
-└───┴───┴───┴───┴───┴───┴───┴───┘
-```
 
-## Movement generation
+#### Listing movements
+
+The `Board` class has some methods for listing available movements:
+
+```kotlin
+val board = Board()
+
+// retrieve movements to the piece in the specific square
+board.getMovements(Positions.E2)
+
+// retrieve all movements of the active side
+board.getMovements()
+
+// retrieve all movements for specific side
+board.getMovements(Color.BLACK)
+
+// retrieve some random movement
+board.getRandomMovement()
+
+// iterates over each movement
+board.forEachMovement() { movement ->
+    // ...
+}
+
+// make each movement and redoes after closuje returns
+board.withinEachMovement() { // this = Board
+    // ...
+}
+```
 
 ## PERFT  calculation
 
