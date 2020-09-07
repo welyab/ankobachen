@@ -45,6 +45,7 @@ data class FenInfo(
     val fullMoveCounter: Int
 )
 
+@Suppress("MemberVisibilityCanBePrivate")
 class FenString(val fen: String) {
 
     private var fenInfo: FenInfo? = null
@@ -261,7 +262,7 @@ class FenString(val fen: String) {
         if (fullMoveCounterPart == null || fullMoveCounterPart == "-") FEN_DEFAULT_FULL_MOVE_COUNTER
         else try {
             fullMoveCounterPart.toInt().apply {
-                if (this < 1)
+                if (this < 0)
                     throw FenException("Invalid fen \"$fen\". Invalid full move counter: $fullMoveCounterPart")
             }
         } catch (e: NumberFormatException) {

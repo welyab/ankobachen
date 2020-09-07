@@ -142,9 +142,9 @@ class BoardTest {
         totalNodesDepth6: Long
     ) {
         val perftResult = PerftCalculator(fen, depth = 4).getPerftResult()
-        assertEquals(totalNodesdepth1, perftResult.getPeftValue(1, PerftValue.NODES))
-        assertEquals(totalNodesDepth2, perftResult.getPeftValue(2, PerftValue.NODES))
-        assertEquals(totalNodesDepth3, perftResult.getPeftValue(3, PerftValue.NODES))
-        assertEquals(totalNodesDepth4, perftResult.getPeftValue(4, PerftValue.NODES))
+        assertEquals(totalNodesdepth1, perftResult.getPerftValue(1, PerftValue.NODES))
+        assertEquals(totalNodesDepth2, perftResult.getPerftValue(2, PerftValue.NODES))
+        assertEquals(totalNodesDepth3, perftResult.getPerftValue(3, PerftValue.NODES))
+        assertEquals(totalNodesDepth4, perftResult.getPerftValue(4, PerftValue.NODES))
     }
 }

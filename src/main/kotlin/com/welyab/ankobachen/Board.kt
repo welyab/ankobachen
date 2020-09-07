@@ -52,6 +52,8 @@ import com.welyab.ankobachen.PieceType.PAWN
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.extensions.shift
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.EnumMap
 import kotlin.math.absoluteValue
 
@@ -201,8 +203,14 @@ class Board : Copyable<Board> {
 
     fun setFen(fen: String): Unit = setFen(FenString(fen))
 
-    fun getPieceLocations(): List<PieceLocation> = getPieceLocations2(BLACK) + getPieceLocations2(WHITE)
-    fun getPieceLocations(color: Color = sideToMove): List<PieceLocation> = getPieceLocations2(color)
+    fun getPieceLocations(): List<PieceLocation> = ArrayList<PieceLocation>().apply {
+        getPieceLocations(WHITE, this)
+        getPieceLocations(BLACK, this)
+    }
+
+    fun getPieceLocations(color: Color = sideToMove): List<PieceLocation> = ArrayList<PieceLocation>().apply {
+        getPieceLocations(color, this)
+    }
 
     fun getMovements(position: Position): Movements = getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
     fun getMovements(color: Color = sideToMove): Movements = getMovements(color, ALL_FLAGS or ALL_MOVEMENTS)
@@ -238,6 +246,57 @@ class Board : Copyable<Board> {
         getAttackers(attackedPosition.squareIndex, attackerColor)
 
     fun hasPreviousMove(): Boolean = moveLog.isNotEmpty()
+
+    fun getFen(): String = buildString {
+        // r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -
+        val piecesMap = getPieceLocations().asSequence().map { it.position.squareIndex to it.piece }.toMap()
+        var emptySquares = 0
+        for (squareIndex in 0..63) {
+            if (squareIndex > 0 && squareIndex % 8 == 0) {
+                if (emptySquares != 0) append(emptySquares)
+                emptySquares = 0
+                append('/')
+            }
+            val piece = piecesMap[squareIndex]
+            if (piece == null) emptySquares++
+            else {
+                if (emptySquares != 0) append(emptySquares)
+                emptySquares = 0
+                append(piece.letter)
+            }
+        }
+        if (emptySquares != 0) append(emptySquares)
+        append(' ')
+        append(sideToMove.letter)
+        val castlingFlagsList = ArrayList<Char>(4)
+        var cf = castlingFlags
+        while (cf != ZERO) {
+            val rookIndex = cf.countLeadingZeroBits()
+            val rook = getPiece(rookIndex)
+            val rookPosition = Position.from(rookIndex)
+            castlingFlagsList += when (rook.color) {
+                WHITE -> rookPosition.file.toUpperCase()
+                BLACK -> rookPosition.file.toLowerCase()
+            }
+            cf = cf and FULL.shift(rookIndex + 1)
+        }
+        append(' ')
+        if (castlingFlagsList.isEmpty()) {
+            append('-')
+        } else {
+            castlingFlagsList.forEach { append(it) }
+        }
+        append(' ')
+        if (epTargetSquare == ZERO) {
+            append('-')
+        } else {
+            append(Position.from(epTargetSquare.countLeadingZeroBits()).getSanNotation())
+        }
+        append(' ')
+        append(halfMoveClock)
+        append(' ')
+        append(fullMoveCounter)
+    }
 
     fun undo() {
         val log = moveLog.removeLast()
@@ -913,8 +972,7 @@ class Board : Copyable<Board> {
         bitboardByPiece[piece]!!.setBits(bitboard)
     }
 
-    private fun getPieceLocations2(color: Color): List<PieceLocation> {
-        val locations = ArrayList<PieceLocation>()
+    private fun getPieceLocations(color: Color, locations: MutableList<PieceLocation>) {
         when (color) {
             WHITE -> {
                 getPieceLocations(WHITE_KING, whiteKing, locations)
@@ -933,7 +991,6 @@ class Board : Copyable<Board> {
                 getPieceLocations(BLACK_PAWN, blackPawns, locations)
             }
         }
-        return locations.sorted()
     }
 
     private fun getPieceLocations(piece: Piece, pieceBitboard: ULong, positions: MutableList<PieceLocation>) {
@@ -1170,4 +1227,11 @@ class Board : Copyable<Board> {
         private val LEFT_CASTLING_FINAL_POSITIONS = 0x3000000000000030uL
         private val RIGHT_CASTLING_FINAL_POSITIONS = 0x0600000000000006uL
     }
+}
+
+@ExperimentalStdlibApi
+fun main() {
+    Files.lines(Paths.get("C:\\Users\\wsp_e\\OneDrive\\Área de Trabalho\\fen.txt"))
+        .filter { it.count { char -> char == '/' } == 7 }
+        .forEach { println(it) }
 }

@@ -207,12 +207,26 @@ class MovementMetadata private constructor(
 
 private fun Int.toPosition() = Position.from(this)
 
+@Suppress("unused")
 class Movement(
     val from: Int,
     val to: Int,
     val toPiece: Piece,
     val flags: MovementFlags
 ) {
+
+    constructor(
+        from: Position,
+        to: Position,
+        toPiece: Piece,
+        flags: MovementFlags
+    ) : this(
+        from.squareIndex,
+        to.squareIndex,
+        toPiece,
+        flags
+    )
+
     val fromPosition: Position get() = Position.from(from)
     val toPosition: Position get() = Position.from(to)
 
