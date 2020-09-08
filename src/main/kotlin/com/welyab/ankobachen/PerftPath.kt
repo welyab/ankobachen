@@ -150,6 +150,7 @@ class PerftResult private constructor(val fen: String, private val results: Map<
 
 @ExperimentalStdlibApi
 private class Walker constructor(
+    private val fen: String,
     private val board: Board,
     private val currentDepth: Int,
     private val maxDepth: Int
@@ -157,18 +158,18 @@ private class Walker constructor(
 
     override fun compute(): PerftResult {
         if (maxDepth - currentDepth + 1 == 2) {
-            val builder = PerftResult.builder("fen")
+            val builder = PerftResult.builder(fen)
             walk(board, currentDepth, maxDepth, builder)
             return builder.builder()
         }
 
         val movements = board.getMovements()
-        val builder = PerftResult.builder("fen")
+        val builder = PerftResult.builder(fen)
         builder.add(currentDepth, movements.metadata)
         val walkers = ArrayList<Walker>()
         for (movement in movements) {
             board.move(movement)
-            walkers += Walker(board.copy(), currentDepth + 1, maxDepth)
+            walkers += Walker(fen, board.copy(), currentDepth + 1, maxDepth)
             board.undo()
         }
         ForkJoinTask.invokeAll(walkers)
@@ -200,7 +201,7 @@ class PerftCalculator(
 
     fun getPerftResult(): PerftResult {
         if (perftResult == null) {
-            val walker = Walker(Board(fen), 1, depth)
+            val walker = Walker(fen, Board(fen), 1, depth)
             perftResult = ForkJoinPool.commonPool().invoke(walker)
         }
         return perftResult!!
@@ -209,7 +210,7 @@ class PerftCalculator(
     fun execute() {
         if (perftResult != null) return
         val board = if (fen.isBlank()) Board() else Board(fen)
-        val walker = Walker(board, 1, depth)
+        val walker = Walker(fen, board, 1, depth)
         perftResult = ForkJoinPool.commonPool().invoke(walker)
     }
 }
@@ -269,10 +270,10 @@ class PathEnumerator(
 @ExperimentalTime
 @ExperimentalStdlibApi
 fun main() {
-    val enumerator = PathEnumerator(
-        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -",
-        1,
-        1
-    )
-    enumerator.enumerate()
+    PerftCalculator("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", 6)
+        .getPerftResult()
+        .apply {
+            println("FEN: ${this.fen}")
+            println(this)
+        }
 }

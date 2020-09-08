@@ -1,4 +1,7 @@
-# AN.KO.BA.CH.EN
+<p align="center">
+  <img src="readme-assets/ankobachen-logo.png" height="220" width="220">
+</p>
+<h1 align="center">AN.KO.BA.CH.EN</h1>
 
 **AN.KO.BA.CH.EN** is just an acronym for **Another Kotlin Based Chess Engine**. This is a hobbyist chess engine software primarily programmed in Kotlin.
 
@@ -73,7 +76,7 @@ board.forEachMovement() { movement ->
     // ...
 }
 
-// make each movement and redoes after closuje returns
+// iterates over each movement. Within the closure, the movement already been made
 board.withinEachMovement() { // this = Board
     // ...
 }
@@ -81,20 +84,5 @@ board.withinEachMovement() { // this = Board
 
 ## PERFT  calculation
 
-```text
-FEN: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-Depth: 5
-┌───────┬─────────┬──────────┬─────────────┬───────────┬────────────┬────────┬─────────────┬─────────┬────────────┬────────────┐
-│ DEPTH │   NODES │ CAPTURES │ EN_PASSANTS │ CASTLINGS │ PROMOTIONS │ CHECKS │ DISCOVERIES │ DOUBLES │ CHECKMATES │ STALEMATES │
-├───────┼─────────┼──────────┼─────────────┼───────────┼────────────┼────────┼─────────────┼─────────┼────────────┼────────────┤
-│     1 │      20 │        0 │           0 │         0 │          0 │      0 │           0 │       0 │          0 │          0 │
-├───────┼─────────┼──────────┼─────────────┼───────────┼────────────┼────────┼─────────────┼─────────┼────────────┼────────────┤
-│     2 │     400 │        0 │           0 │         0 │          0 │      0 │           0 │       0 │          0 │          0 │
-├───────┼─────────┼──────────┼─────────────┼───────────┼────────────┼────────┼─────────────┼─────────┼────────────┼────────────┤
-│     3 │    8902 │       34 │           0 │         0 │          0 │     12 │           0 │       0 │          0 │          0 │
-├───────┼─────────┼──────────┼─────────────┼───────────┼────────────┼────────┼─────────────┼─────────┼────────────┼────────────┤
-│     4 │  197281 │     1576 │           0 │         0 │          0 │    469 │           0 │       0 │          8 │          0 │
-├───────┼─────────┼──────────┼─────────────┼───────────┼────────────┼────────┼─────────────┼─────────┼────────────┼────────────┤
-│     5 │ 4865609 │    82719 │         258 │         0 │          0 │  27351 │           6 │       0 │        347 │          0 │
-└───────┴─────────┴──────────┴─────────────┴───────────┴────────────┴────────┴─────────────┴─────────┴────────────┴────────────┘
-```
+<img src="readme-assets/perft01.png">
+<img src="readme-assets/perft01.png">
