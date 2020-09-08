@@ -248,8 +248,12 @@ class Board : Copyable<Board> {
     fun hasPreviousMove(): Boolean = moveLog.isNotEmpty()
 
     fun getFen(): String = buildString {
-        // r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -
-        val piecesMap = getPieceLocations().asSequence().map { it.position.squareIndex to it.piece }.toMap()
+        val pieces = arrayOfNulls<Piece>(64)
+            .apply {
+                getPieceLocations()
+                    .asSequence()
+                    .forEach { this[it.position.squareIndex] = it.piece }
+            }
         var emptySquares = 0
         for (squareIndex in 0..63) {
             if (squareIndex > 0 && squareIndex % 8 == 0) {
@@ -257,7 +261,7 @@ class Board : Copyable<Board> {
                 emptySquares = 0
                 append('/')
             }
-            val piece = piecesMap[squareIndex]
+            val piece = pieces[squareIndex]
             if (piece == null) emptySquares++
             else {
                 if (emptySquares != 0) append(emptySquares)
