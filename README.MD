@@ -85,4 +85,4 @@ board.withinEachMovement() { // this = Board
 ## PERFT  calculation
 
 <img src="readme-assets/perft01.png">
-<img src="readme-assets/perft01.png">
+<img src="readme-assets/perft02.png">
