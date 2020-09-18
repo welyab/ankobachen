@@ -37,26 +37,6 @@ private fun Color.getAwtColor() = when (this) {
 @ExperimentalStdlibApi
 object BoardPrinter {
 
-    private val piecesIcons: Map<Piece, Image> by lazy {
-        mapOf(
-            Piece.BLACK_BISHOP to "/util/images/black_bishop.png",
-            Piece.BLACK_KING to "/util/images/black_king.png",
-            Piece.BLACK_KNIGHT to "/util/images/black_knight.png",
-            Piece.BLACK_PAWN to "/util/images/black_pawn.png",
-            Piece.BLACK_QUEEN to "/util/images/black_queen.png",
-            Piece.BLACK_ROOK to "/util/images/black_rook.png",
-            Piece.WHITE_BISHOP to "/util/images/white_bishop.png",
-            Piece.WHITE_KING to "/util/images/white_king.png",
-            Piece.WHITE_KNIGHT to "/util/images/white_knight.png",
-            Piece.WHITE_PAWN to "/util/images/white_pawn.png",
-            Piece.WHITE_QUEEN to "/util/images/white_queen.png",
-            Piece.WHITE_ROOK to "/util/images/white_rook.png"
-        ).asSequence().map { e ->
-            val image = ImageIcon(javaClass.getResource(e.value).readBytes()).image
-            e.key to image
-        }.toMap()
-    }
-
     fun to(board: Board): BufferedImage {
         val pieces = arrayOfNulls<Piece>(64)
             .apply {
@@ -83,7 +63,7 @@ object BoardPrinter {
                 g.fill(squareShape)
                 val piece = pieces[squareIndex]
                 if (piece != null) {
-                    val icon = piecesIcons[piece] ?: error("could not find image icon for $piece")
+                    val icon = Resources.getPieceIcon(piece)
                     g.drawImage(
                         icon,
                         (column * squareLength).toInt(),

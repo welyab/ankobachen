@@ -268,6 +268,8 @@ class PieceMovement(
         targets.forEach { visitor.invoke(it) }
     }
 
+    fun asSequenceOfTargets() = targets.asSequence()
+
     override fun toString(): String = buildString {
         append("${Position.from(from)} -> ")
         if (targets.isEmpty()) {

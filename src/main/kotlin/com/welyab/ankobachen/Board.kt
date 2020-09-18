@@ -52,8 +52,6 @@ import com.welyab.ankobachen.PieceType.PAWN
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.extensions.shift
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.util.EnumMap
 import kotlin.math.absoluteValue
 
@@ -201,6 +199,7 @@ class Board : Copyable<Board> {
         if (initialize) setFen(FEN_INITIAL)
     }
 
+    fun getSideToMove(): Color = sideToMove
     fun setFen(fen: String): Unit = setFen(FenString(fen))
 
     fun getPieceLocations(): List<PieceLocation> = ArrayList<PieceLocation>().apply {
@@ -213,6 +212,16 @@ class Board : Copyable<Board> {
     }
 
     fun getMovements(position: Position): Movements = getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
+    fun getMovements(fromPosition: Position, toPosition: Position): Movements {
+        val movements = getMovements(fromPosition)
+        if(movements.isEmpty()) return movements
+        val targets = movements
+            .getPieceMovement(0)
+            .asSequenceOfTargets()
+            .filter { it.to == toPosition.squareIndex }
+            .toList()
+        return Movements(listOf(PieceMovement(fromPosition.squareIndex, targets)))
+    }
     fun getMovements(color: Color = sideToMove): Movements = getMovements(color, ALL_FLAGS or ALL_MOVEMENTS)
     fun getRandomMovement(): Movement = getMovements(sideToMove, ALL_FLAGS or ALL_MOVEMENTS).getRandomMovement()
     fun forEachMovement(visitor: (Movement) -> Unit) {
@@ -246,6 +255,11 @@ class Board : Copyable<Board> {
         getAttackers(attackedPosition.squareIndex, attackerColor)
 
     fun hasPreviousMove(): Boolean = moveLog.isNotEmpty()
+
+    fun isEmpty(position: Position): Boolean = isEmpty(position.squareIndex)
+    fun isNotEmpty(position: Position): Boolean = !isEmpty(position.squareIndex)
+
+    fun getPiece(position: Position): Piece = getPiece(position.squareIndex)
 
     fun getFen(): String = buildString {
         val pieces = arrayOfNulls<Piece>(64)
@@ -1231,11 +1245,4 @@ class Board : Copyable<Board> {
         private val LEFT_CASTLING_FINAL_POSITIONS = 0x3000000000000030uL
         private val RIGHT_CASTLING_FINAL_POSITIONS = 0x0600000000000006uL
     }
-}
-
-@ExperimentalStdlibApi
-fun main() {
-    Files.lines(Paths.get("C:\\Users\\wsp_e\\OneDrive\\Área de Trabalho\\fen.txt"))
-        .filter { it.count { char -> char == '/' } == 7 }
-        .forEach { println(it) }
 }
