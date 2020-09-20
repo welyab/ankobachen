@@ -15,73 +15,73 @@ import java.util.EnumMap
 import kotlin.math.max
 import kotlin.math.min
 
-private val kingValues = intArrayOf(
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -30, -40, -40, -50, -50, -40, -40, -30,
-    -20, -30, -30, -40, -40, -30, -30, -20,
-    -10, -20, -20, -20, -20, -20, -20, -10,
-    20, 20, 0, 0, 0, 0, 20, 20,
-    20, 30, 10, 0, 0, 10, 30, 20
+private val kingValues = doubleArrayOf(
+    -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0,
+    -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0,
+    -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0,
+    -3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0,
+    -2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0,
+    -1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -1.0,
+    2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0,
+    2.0, 3.0, 1.0, 0.0, 0.0, 1.0, 3.0, 2.0
 )
 
-private val queenValues = intArrayOf(
-    -20, -10, -10, -5, -5, -10, -10, -20,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -10, 0, 5, 5, 5, 5, 0, -10,
-    -5, 0, 5, 5, 5, 5, 0, -5,
-    0, 0, 5, 5, 5, 5, 0, -5,
-    -10, 5, 5, 5, 5, 5, 0, -10,
-    -10, 0, 5, 0, 0, 0, 0, -10,
-    -20, -10, -10, -5, -5, -10, -10, -20
+private val queenValues = doubleArrayOf(
+    -2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0,
+    -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0,
+    -1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0,
+    -0.5, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -0.5,
+    0.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -0.5,
+    -1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0,
+    -1.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, -1.0,
+    -2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0
 )
 
-private val rookValues = intArrayOf(
-    0, 0, 0, 0, 0, 0, 0, 0,
-    5, 10, 10, 10, 10, 10, 10, 5,
-    -5, 0, 0, 0, 0, 0, 0, -5,
-    -5, 0, 0, 0, 0, 0, 0, -5,
-    -5, 0, 0, 0, 0, 0, 0, -5,
-    -5, 0, 0, 0, 0, 0, 0, -5,
-    -5, 0, 0, 0, 0, 0, 0, -5,
-    0, 0, 0, 5, 5, 0, 0, 0
+private val rookValues = doubleArrayOf(
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5,
+    -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5,
+    -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5,
+    -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5,
+    -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5,
+    -0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5,
+    0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0
 )
 
-private val bishopValues = intArrayOf(
-    -20, -10, -10, -10, -10, -10, -10, -20,
-    -10, 0, 0, 0, 0, 0, 0, -10,
-    -10, 0, 5, 10, 10, 5, 0, -10,
-    -10, 5, 5, 10, 10, 5, 5, -10,
-    -10, 0, 10, 10, 10, 10, 0, -10,
-    -10, 10, 10, 10, 10, 10, 10, -10,
-    -10, 5, 0, 0, 0, 0, 5, -10,
-    -20, -10, -10, -10, -10, -10, -10, -20
+private val bishopValues = doubleArrayOf(
+    -2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0,
+    -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0,
+    -1.0, 0.0, 0.5, 1.0, 1.0, 0.5, 0.0, -1.0,
+    -1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, -1.0,
+    -1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, -1.0,
+    -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0,
+    -1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, -1.0,
+    -2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0
 )
 
-private val knightValues = intArrayOf(
-    -50, -40, -30, -30, -30, -30, -40, -50,
-    -40, -20, 0, 0, 0, 0, -20, -40,
-    -30, 0, 10, 15, 15, 10, 0, -30,
-    -30, 5, 15, 20, 20, 15, 5, -30,
-    -30, 0, 15, 20, 20, 15, 0, -30,
-    -30, 5, 10, 15, 15, 10, 5, -30,
-    -40, -20, 0, 5, 5, 0, -20, -40,
-    -50, -40, -30, -30, -30, -30, -40, -50
+private val knightValues = doubleArrayOf(
+    -5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0,
+    -4.0, -2.0, 0.0, 0.0, 0.0, 0.0, -2.0, -4.0,
+    -3.0, 0.0, 1.0, 1.5, 1.5, 1.0, 0.0, -3.0,
+    -3.0, 0.5, 1.5, 2.0, 2.0, 1.5, 0.5, -3.0,
+    -3.0, 0.0, 1.5, 2.0, 2.0, 1.5, 0.0, -3.0,
+    -3.0, 0.5, 1.0, 1.5, 1.5, 1.0, 0.5, -3.0,
+    -4.0, -2.0, 0.0, 0.5, 0.5, 0.0, -2.0, -4.0,
+    -5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0
 )
 
-private val pawnValues = intArrayOf(
-    0, 0, 0, 0, 0, 0, 0, 0,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    10, 10, 20, 30, 30, 20, 10, 10,
-    5, 5, 10, 25, 25, 10, 5, 5,
-    0, 0, 0, 20, 20, 0, 0, 0,
-    5, -5, -10, 0, 0, -10, -5, 5,
-    5, 10, 10, -20, -20, 10, 10, 5,
-    0, 0, 0, 0, 0, 0, 0, 0
+private val pawnValues = doubleArrayOf(
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0,
+    1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 1.0, 1.0,
+    0.5, 0.5, 1.0, 2.5, 2.5, 1.0, 0.5, 0.5,
+    0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0,
+    0.5, -0.5, -1.0, 0.0, 0.0, -1.0, -0.5, 0.5,
+    0.5, 1.0, 1.0, -2.0, -2.0, 1.0, 1.0, 0.5,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 )
 
-private val valuesMap = EnumMap<PieceType, IntArray>(PieceType::class.java).apply {
+private val valuesMap = EnumMap<PieceType, DoubleArray>(PieceType::class.java).apply {
     this[KING] = kingValues
     this[QUEEN] = queenValues
     this[ROOK] = rookValues
@@ -90,7 +90,7 @@ private val valuesMap = EnumMap<PieceType, IntArray>(PieceType::class.java).appl
     this[PAWN] = pawnValues
 }
 
-private fun getBoardValue(pieces: List<PieceLocation>): Int {
+private fun getBoardValue(pieces: List<PieceLocation>): Double {
     return pieces
         .asSequence()
         .map { pieceLocation ->
@@ -126,45 +126,57 @@ private fun sortMovements(movements: List<Movement>): List<Movement> {
 private fun minmax(
     board: Board,
     currentDepth: Int,
-    maxDepth: Int
-): Pair<Int, List<Movement>> {
+    maxDepth: Int,
+    maxScore: Int,
+    minScore: Int
+): Pair<Double, List<Movement>> {
     if (currentDepth == maxDepth) {
+        evaluatedPositions++
         return getBoardValue(board.getPieceLocations()) to emptyList()
     }
     val movements = sortMovements(board.getMovements().asSequenceOfMovements().toList())
-    var bestPath: Pair<Int, List<Movement>>? = null
+    var currentScore = when (board.getSideToMove()) {
+        WHITE -> maxScore
+        BLACK -> minScore
+    }
+    val path = ArrayList<Movement>(maxDepth)
     for (index in movements.indices) {
         val movement = movements[index]
         board.move(movement)
-        evaluatedPositions++
+        val currentMinMaxScores = when (board.getSideToMove()) {
+            WHITE -> Pair(currentScore, minScore)
+            WHITE -> Pair(maxScore, currentDepth)
+        }
         val deeperPath = minmax(
             board,
             currentDepth + 1,
-            maxDepth
+            maxDepth,
+            currentMinMaxScores.first,
+            currentMinMaxScores.second
         )
         board.undo()
+        val deeperScore = deeperPath.first
         if (
-            bestPath == null
-            || (board.getSideToMove().isWhite && deeperPath.first > bestPath.first)
-            || (board.getSideToMove().isBlack && deeperPath.first < bestPath.first)
+            path.isEmpty()
+            || (board.getSideToMove().isWhite && deeperScore > bestPath.first)
+            || (board.getSideToMove().isBlack && deeperScore < bestPath.first)
         ) {
             val path = ArrayList<Movement>(deeperPath.second.size + 1)
             path += movement
             path += deeperPath.second
-            bestPath = deeperPath.first to path
+            bestPath = deeperScore to path
         } else {
             val factor = (1 - 0.1 * (currentDepth - 1))
             val cutIndex = min((movements.size * factor).toInt(), 6)
             if (index >= cutIndex) {
-                println("factor: %.2f".format(factor))
                 break
             }
         }
     }
     if (bestPath == null) {
         val score = when (board.getSideToMove()) {
-            WHITE -> Int.MIN_VALUE
-            BLACK -> Int.MAX_VALUE
+            WHITE -> Double.MIN_VALUE
+            BLACK -> Double.MAX_VALUE
         }
         bestPath = score to emptyList()
     }
@@ -172,20 +184,13 @@ private fun minmax(
 }
 
 @ExperimentalStdlibApi
-fun main1() {
-    val board = Board()
-    val score = getBoardValue(board.getPieceLocations())
-    println("score: $score")
-}
-
-@ExperimentalStdlibApi
 fun main() {
-    val fen = "1n2kb1r/p4ppp/4q3/4p1B1/4P3/8/PPP2PPP/2KR4 w k - 0 2"
+    val fen = "r2qkb1r/pp2nppp/3p4/2pNN1B1/2BnP3/3P4/PPP2PPP/R2bK2R w KQkq - 1 0"
     val board = Board(fen)
     val movements = minmax(
         board,
         0,
-        4
+        8
     )
     println("total positions: $evaluatedPositions")
     println("score: ${movements.first}")
