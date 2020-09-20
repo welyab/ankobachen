@@ -12,6 +12,8 @@ import com.welyab.ankobachen.Position.Companion.rowColumnToSquareIndex
 import com.welyab.ankobachen.Position.Companion.squareIndexToColumn
 import com.welyab.ankobachen.Position.Companion.squareIndexToRow
 import java.util.EnumMap
+import kotlin.math.max
+import kotlin.math.min
 
 private val kingValues = intArrayOf(
     -30, -40, -40, -50, -50, -40, -40, -30,
@@ -105,50 +107,87 @@ private fun getBoardValue(pieces: List<PieceLocation>): Int {
         .sum()
 }
 
-@ExperimentalStdlibApi
-private fun minmax(board: Board, depth: Int, movement: Movement? = null): Pair<Int, Movement?> {
-    if (depth == 0) {
-        return getBoardValue(board.getPieceLocations()) to movement!!
-    }
-    val movements = board.getMovements()
-    var bestMovement: Pair<Int, Movement?>? = null
-    val movingSide = board.getSideToMove()
-    for (movement in movements) {
-        board.move(movement)
-        val value = minmax(board, depth - 1, movement)
-        board.undo()
+private var evaluatedPositions = 0
 
-        bestMovement = if (bestMovement == null) value
-        else getBestMovement(bestMovement, Pair(value.first, movement), movingSide)
-    }
-
-    if(bestMovement == null) {
-        return when(movingSide) {
-            WHITE -> Pair(Int.MIN_VALUE, null)
-            BLACK -> Pair(Int.MAX_VALUE, null)
+private fun sortMovements(movements: List<Movement>): List<Movement> {
+    return movements.sortedBy {
+        when {
+            it.flags.isCheckmate -> 0
+            it.flags.isPromotion -> 1
+            it.flags.isCapture -> 2
+            it.flags.isEnPassant -> 3
+            it.flags.isStalemate -> 99999999
+            else -> 999999
         }
     }
-
-    return bestMovement
 }
 
-private fun getBestMovement(
-    movement1: Pair<Int, Movement?>,
-    movement2: Pair<Int, Movement?>,
-    movingSide: Color
-): Pair<Int, Movement?> {
-    return when (movingSide) {
-        WHITE -> if (movement1.first > movement2.first) movement1
-        else movement2
-        BLACK -> if (movement1.first < movement2.first) movement1
-        else movement2
+@ExperimentalStdlibApi
+private fun minmax(
+    board: Board,
+    currentDepth: Int,
+    maxDepth: Int
+): Pair<Int, List<Movement>> {
+    if (currentDepth == maxDepth) {
+        return getBoardValue(board.getPieceLocations()) to emptyList()
     }
+    val movements = sortMovements(board.getMovements().asSequenceOfMovements().toList())
+    var bestPath: Pair<Int, List<Movement>>? = null
+    for (index in movements.indices) {
+        val movement = movements[index]
+        board.move(movement)
+        evaluatedPositions++
+        val deeperPath = minmax(
+            board,
+            currentDepth + 1,
+            maxDepth
+        )
+        board.undo()
+        if (
+            bestPath == null
+            || (board.getSideToMove().isWhite && deeperPath.first > bestPath.first)
+            || (board.getSideToMove().isBlack && deeperPath.first < bestPath.first)
+        ) {
+            val path = ArrayList<Movement>(deeperPath.second.size + 1)
+            path += movement
+            path += deeperPath.second
+            bestPath = deeperPath.first to path
+        } else {
+            val factor = (1 - 0.1 * (currentDepth - 1))
+            val cutIndex = min((movements.size * factor).toInt(), 6)
+            if (index >= cutIndex) {
+                println("factor: %.2f".format(factor))
+                break
+            }
+        }
+    }
+    if (bestPath == null) {
+        val score = when (board.getSideToMove()) {
+            WHITE -> Int.MIN_VALUE
+            BLACK -> Int.MAX_VALUE
+        }
+        bestPath = score to emptyList()
+    }
+    return bestPath
+}
+
+@ExperimentalStdlibApi
+fun main1() {
+    val board = Board()
+    val score = getBoardValue(board.getPieceLocations())
+    println("score: $score")
 }
 
 @ExperimentalStdlibApi
 fun main() {
-    val fen = "r1b2bnr/p3k2p/2Q3p1/2pNpp2/4p3/2P3P1/PP3PBP/R1B1K1NR b KQ - 1 14"
+    val fen = "1n2kb1r/p4ppp/4q3/4p1B1/4P3/8/PPP2PPP/2KR4 w k - 0 2"
     val board = Board(fen)
-    val movement = minmax(board, 4)
-    println("movement = $movement")
+    val movements = minmax(
+        board,
+        0,
+        4
+    )
+    println("total positions: $evaluatedPositions")
+    println("score: ${movements.first}")
+    movements.second.forEach { println(it) }
 }

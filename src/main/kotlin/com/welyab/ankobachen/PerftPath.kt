@@ -270,7 +270,7 @@ class PathEnumerator(
 @ExperimentalTime
 @ExperimentalStdlibApi
 fun main() {
-    PerftCalculator("R6R/3Q4/1Q4Q1/4Q3/2Q4Q/Q4Q2/pp1Q4/kBNN1KB1 w - - 0 1", 5)
+    PerftCalculator(Board.FEN_INITIAL, 4)
         .getPerftResult()
         .apply {
             println("FEN: ${this.fen}")
