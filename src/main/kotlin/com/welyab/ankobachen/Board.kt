@@ -214,7 +214,7 @@ class Board : Copyable<Board> {
     fun getMovements(position: Position): Movements = getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
     fun getMovements(fromPosition: Position, toPosition: Position): Movements {
         val movements = getMovements(fromPosition)
-        if(movements.isEmpty()) return movements
+        if (movements.isEmpty()) return movements
         val targets = movements
             .getPieceMovement(0)
             .asSequenceOfTargets()
@@ -222,6 +222,7 @@ class Board : Copyable<Board> {
             .toList()
         return Movements(listOf(PieceMovement(fromPosition.squareIndex, targets)))
     }
+
     fun getMovements(color: Color = sideToMove): Movements = getMovements(color, ALL_FLAGS or ALL_MOVEMENTS)
     fun getRandomMovement(): Movement = getMovements(sideToMove, ALL_FLAGS or ALL_MOVEMENTS).getRandomMovement()
     fun forEachMovement(visitor: (Movement) -> Unit) {
@@ -246,6 +247,13 @@ class Board : Copyable<Board> {
             .firstOrNull()
             ?: throw BoardException("can't find valid move from $from to $to")
         move(movement)
+    }
+
+    fun <E> withMove(movement: Movement, action: Board.() -> E): E {
+        move(movement)
+        val result = action.invoke(this)
+        undo()
+        return result
     }
 
     fun isSquareAttacked(attackedPosition: Position, attackerColor: Color): Boolean =

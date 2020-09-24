@@ -229,6 +229,8 @@ class Movement(
 
     val fromPosition: Position get() = Position.from(from)
     val toPosition: Position get() = Position.from(to)
+    val color: Color get() = toPiece.color
+    val isFinalMovement: Boolean get() = flags.isCheckmate || flags.isStalemate
 
     override fun toString(): String {
         return "${from.toPosition()} -> ${to.toPosition()} = $toPiece, $flags"
