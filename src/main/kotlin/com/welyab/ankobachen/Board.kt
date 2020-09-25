@@ -81,7 +81,7 @@ private interface PieceBitBoard {
 )
 @ExperimentalStdlibApi
 @ExperimentalUnsignedTypes
-class Board : Copyable<Board> {
+class Board : Copyable<Board>, Iterable<Movement> {
 
     private var whiteKing: ULong = 0uL
     private var whiteQueens: ULong = 0uL
@@ -229,10 +229,19 @@ class Board : Copyable<Board> {
         getMovements().forEachMovement { visitor.invoke(it) }
     }
 
+    override fun iterator(): Iterator<Movement> = getMovements().iterator()
+
+    fun <E> withinMovement(movement: Movement, visitor: Board.() -> E): E {
+        move(movement)
+        val value = visitor()
+        undo()
+        return value
+    }
+
     fun withinEachMovement(visitor: Board.() -> Unit) {
         forEachMovement { movement ->
             move(movement)
-            this.visitor()
+            visitor()
             undo()
         }
     }

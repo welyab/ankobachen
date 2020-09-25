@@ -125,8 +125,8 @@ private val valuesMap = EnumMap<PieceType, IntArray>(PieceType::class.java).appl
 private val MIN_INFINITY = Int.MIN_VALUE
 private val MAX_INFINITY = Int.MAX_VALUE
 
-private val MIN_EVAL = -1000000000
-private val MAX_EVAL = 1000000000
+private val MIN_SCORE = -1000000000
+private val MAX_SCORE = 1000000000
 
 private fun getBoardValue(pieces: List<PieceLocation>): Int {
     return pieces
@@ -149,9 +149,102 @@ private fun sortMovements(movements: List<Movement>): List<Movement> {
     return movements
 }
 
-private class Negamax : Runnable {
+private class Variant(val score: Int, val movements: List<Movement>) {
 
-    override fun run() {
+    private fun movementsToString(): String = movements
+        .asSequence()
+        .map { "${it.fromPosition}->${it.toPosition}(${it.flags})" }
+        .joinToString()
+
+    override fun toString(): String = "score=$score, moves=${movementsToString()}"
+}
+
+@ExperimentalStdlibApi
+private class Minimax(
+    private val fen: String,
+    private val depth: Int
+) {
+
+    fun find(): Variant {
+        val board = Board(fen)
+        return walk(
+            board,
+            depth,
+            MIN_INFINITY,
+            MAX_INFINITY,
+            null
+        )
+    }
+
+    private fun walk(
+        board: Board,
+        depth: Int,
+        alpha: Int,
+        beta: Int,
+        previousMovement: Movement?
+    ): Variant {
+        if (previousMovement != null && previousMovement.isFinalMovement) return when {
+            previousMovement.flags.isStalemate -> Variant(0, emptyList())
+            else -> when (board.getSideToMove()) {
+                WHITE -> Variant(MIN_SCORE, emptyList())
+                BLACK -> Variant(MAX_SCORE, emptyList())
+            }
+        } else if (depth == 0) return Variant(getBoardValue(board.getPieceLocations()), emptyList())
+        when (board.getSideToMove()) {
+            WHITE -> {
+                var best: Variant? = null
+                var cAlpha = alpha
+                for (movement in board) {
+                    val deeper = board.withinMovement(movement) {
+                        walk(this, depth - 1, cAlpha, beta, movement)
+                    }
+                    best = getBest(board.getSideToMove(), best, movement, deeper)
+                    cAlpha = max(cAlpha, deeper.score)
+                    if (cAlpha >= beta) break
+                }
+                return best!!
+            }
+            BLACK -> {
+                var best: Variant? = null
+                var cBeta = beta
+                for (movement in board) {
+                    val deeper = board.withinMovement(movement) {
+                        walk(this, depth - 1, cBeta, beta, movement)
+                    }
+                    best = getBest(board.getSideToMove(), best, movement, deeper)
+                    cBeta = min(cBeta, deeper.score)
+                    if (alpha >= cBeta) break
+                }
+                return best!!
+            }
+        }
+    }
+
+    private fun createVariant(score: Int, movement: Movement, movements: List<Movement>): Variant {
+        val list = ArrayList<Movement>(movements.size + 1)
+        list += movement
+        list += movements
+        return Variant(score, list)
+    }
+
+    private fun getBest(
+        sideToMove: Color,
+        currentBest: Variant?,
+        movement: Movement,
+        deeperVariant: Variant
+    ): Variant {
+        if (currentBest == null) {
+            return createVariant(deeperVariant.score, movement, deeperVariant.movements)
+        }
+        if (currentBest.score != deeperVariant.score) {
+            val foundBetter = when (sideToMove) {
+                WHITE -> deeperVariant.score > currentBest.score
+                BLACK -> deeperVariant.score < currentBest.score
+            }
+            if(foundBetter) {
+                return createVariant(deeperVariant.score, movement, deeperVariant.movements)
+            }
+        }
     }
 }
 
@@ -193,4 +286,10 @@ class Searcher {
 
 @ExperimentalStdlibApi
 fun main() {
+    Minimax(
+        fen = "4b1k1/2r2p2/1q1pnPpQ/7p/p3P2P/pN5B/P1P5/1K1R2R1 w - - 1 0",
+        depth = 5
+    ).find().movements.forEach {
+        println(it)
+    }
 }
