@@ -26,9 +26,8 @@ import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.Position.Companion.rowColumnToSquareIndex
 import com.welyab.ankobachen.Position.Companion.squareIndexToColumn
 import com.welyab.ankobachen.Position.Companion.squareIndexToRow
-import kotlinx.coroutines.GlobalScope
+import jdk.nashorn.internal.objects.NativeArray
 import java.util.EnumMap
-import javax.xml.bind.JAXBElement
 import kotlin.math.max
 import kotlin.math.min
 
@@ -178,7 +177,7 @@ private class Minimax(
 
     private fun walk(
         board: Board,
-        depth: Int,
+        cDepth: Int,
         alpha: Int,
         beta: Int,
         previousMovement: Movement?
@@ -186,17 +185,20 @@ private class Minimax(
         if (previousMovement != null && previousMovement.isFinalMovement) return when {
             previousMovement.flags.isStalemate -> Variant(0, emptyList())
             else -> when (board.getSideToMove()) {
-                WHITE -> Variant(MIN_SCORE, emptyList())
-                BLACK -> Variant(MAX_SCORE, emptyList())
+                WHITE -> Variant(MIN_SCORE - cDepth, emptyList())
+                BLACK -> Variant(MAX_SCORE + cDepth, emptyList())
             }
-        } else if (depth == 0) return Variant(getBoardValue(board.getPieceLocations()), emptyList())
+        } else if (cDepth == 0) return Variant(
+            getBoardValue(board.getPieceLocations()) + depth,
+            emptyList()
+        )
         when (board.getSideToMove()) {
             WHITE -> {
                 var best: Variant? = null
                 var cAlpha = alpha
                 for (movement in board) {
                     val deeper = board.withinMovement(movement) {
-                        walk(this, depth - 1, cAlpha, beta, movement)
+                        walk(this, cDepth - 1, cAlpha, beta, movement)
                     }
                     best = getBest(board.getSideToMove(), best, movement, deeper)
                     cAlpha = max(cAlpha, deeper.score)
@@ -209,7 +211,7 @@ private class Minimax(
                 var cBeta = beta
                 for (movement in board) {
                     val deeper = board.withinMovement(movement) {
-                        walk(this, depth - 1, cBeta, beta, movement)
+                        walk(this, cDepth - 1, alpha, cBeta, movement)
                     }
                     best = getBest(board.getSideToMove(), best, movement, deeper)
                     cBeta = min(cBeta, deeper.score)
@@ -236,15 +238,12 @@ private class Minimax(
         if (currentBest == null) {
             return createVariant(deeperVariant.score, movement, deeperVariant.movements)
         }
-        if (currentBest.score != deeperVariant.score) {
-            val foundBetter = when (sideToMove) {
-                WHITE -> deeperVariant.score > currentBest.score
-                BLACK -> deeperVariant.score < currentBest.score
-            }
-            if(foundBetter) {
-                return createVariant(deeperVariant.score, movement, deeperVariant.movements)
-            }
+        val foundBetter = when (sideToMove) {
+            WHITE -> deeperVariant.score > currentBest.score
+            BLACK -> deeperVariant.score < currentBest.score
         }
+        return if (foundBetter) createVariant(deeperVariant.score, movement, deeperVariant.movements)
+        else currentBest
     }
 }
 
@@ -289,7 +288,10 @@ fun main() {
     Minimax(
         fen = "4b1k1/2r2p2/1q1pnPpQ/7p/p3P2P/pN5B/P1P5/1K1R2R1 w - - 1 0",
         depth = 5
-    ).find().movements.forEach {
-        println(it)
+    ).find().run {
+        println("score=$score")
+        movements.forEach {
+            println(it)
+        }
     }
 }
