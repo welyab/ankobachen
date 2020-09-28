@@ -33,6 +33,11 @@ import com.welyab.ankobachen.BitboardUtil.getWhitePawnDoubleMoveMask
 import com.welyab.ankobachen.BitboardUtil.getWhitePawnSingleMoveMask
 import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
+import com.welyab.ankobachen.MovementFlags.Companion.CAPTURE_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.EN_PASSANT_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.HAS_EXTRA_FLAGS
+import com.welyab.ankobachen.MovementFlags.Companion.PROMOTION_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.PSEUDO_VALID_MOVE
 import com.welyab.ankobachen.Piece.BLACK_BISHOP
 import com.welyab.ankobachen.Piece.BLACK_KING
 import com.welyab.ankobachen.Piece.BLACK_KNIGHT
@@ -199,19 +204,31 @@ class Board : Copyable<Board>, Iterable<Movement> {
         if (initialize) setFen(FEN_INITIAL)
     }
 
-    fun getSideToMove(): Color = sideToMove
-    fun setFen(fen: String): Unit = setFen(FenString(fen))
-
-    fun getPieceLocations(): List<PieceLocation> = ArrayList<PieceLocation>().apply {
-        getPieceLocations(WHITE, this)
-        getPieceLocations(BLACK, this)
+    fun getSideToMove(): Color {
+        return sideToMove
     }
 
-    fun getPieceLocations(color: Color = sideToMove): List<PieceLocation> = ArrayList<PieceLocation>().apply {
-        getPieceLocations(color, this)
+    fun setFen(fen: String): Unit {
+        setFen(FenString(fen))
     }
 
-    fun getMovements(position: Position): Movements = getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
+    fun getPieceLocations(): List<PieceLocation> {
+        return ArrayList<PieceLocation>().apply {
+            getPieceLocations(WHITE, this)
+            getPieceLocations(BLACK, this)
+        }
+    }
+
+    fun getPieceLocations(color: Color = sideToMove): List<PieceLocation> {
+        return ArrayList<PieceLocation>().apply {
+            getPieceLocations(color, this)
+        }
+    }
+
+    fun getMovements(position: Position): Movements {
+        return getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
+    }
+
     fun getMovements(fromPosition: Position, toPosition: Position): Movements {
         val movements = getMovements(fromPosition)
         if (movements.isEmpty()) return movements
@@ -223,31 +240,68 @@ class Board : Copyable<Board>, Iterable<Movement> {
         return Movements(listOf(PieceMovement(fromPosition.squareIndex, targets)))
     }
 
-    fun getMovements(color: Color = sideToMove): Movements = getMovements(color, ALL_FLAGS or ALL_MOVEMENTS)
-    fun getRandomMovement(): Movement = getMovements(sideToMove, ALL_FLAGS or ALL_MOVEMENTS).getRandomMovement()
+    fun getMovements(
+        color: Color = sideToMove,
+        pseudoValid: Boolean = false,
+        allFlags: Boolean = true
+    ): Movements {
+        var moveGenFlags = ALL_MOVEMENTS
+        if (allFlags) moveGenFlags = moveGenFlags or ALL_FLAGS
+        if (pseudoValid) {
+            moveGenFlags = moveGenFlags or PSEUDO_VALID
+            moveGenFlags = moveGenFlags and ALL_FLAGS.inv()
+        }
+        return getMovements(color, moveGenFlags)
+    }
+
+    fun isMovementValid(movement: Movement): Boolean {
+        if (!movement.flags.isPseudoValid) return true
+        return isMovementValid(
+            fromSquare = movement.from,
+            toSquare = movement.to,
+            toPiece = movement.toPiece,
+            isEnPassant = movement.flags.isEnPassant,
+            isCapture = movement.flags.isCapture
+        )
+    }
+
+    fun getExtraFlags(movement: Movement): Movement {
+        if (movement.flags.isExtraFlagsIncluded) return movement
+        val extraFlags = extractExtraMovementFlags(
+            fromSquare = movement.from,
+            toSquare = movement.to,
+            toPiece = movement.toPiece,
+            isCastling = movement.flags.isCastling,
+            isEnPassant = movement.flags.isEnPassant,
+            isCapture = movement.flags.isCapture,
+            isPromotion = movement.flags.isPromotion
+        )
+        return Movement(
+            from = movement.from,
+            to = movement.to,
+            toPiece = movement.toPiece,
+            flags = MovementFlags((movement.flags.flags or extraFlags))
+        )
+    }
+
+    fun getMovementRandom(): Movement {
+        return getMovements(
+            sideToMove, ALL_FLAGS or ALL_MOVEMENTS
+        ).getRandomMovement()
+    }
+
     fun forEachMovement(visitor: (Movement) -> Unit) {
         getMovements().forEachMovement { visitor.invoke(it) }
     }
 
-    override fun iterator(): Iterator<Movement> = getMovements().iterator()
-
-    fun <E> withinMovement(movement: Movement, visitor: Board.() -> E): E {
-        move(movement)
-        val value = visitor()
-        undo()
-        return value
+    fun moveRandom(): Unit {
+        move(getMovementRandom())
     }
 
-    fun withinEachMovement(visitor: Board.() -> Unit) {
-        forEachMovement { movement ->
-            move(movement)
-            visitor()
-            undo()
-        }
+    fun move(movement: Movement) {
+        move(movement.from, movement.to, movement.toPiece, movement.flags)
     }
 
-    fun moveRandom(): Unit = move(getRandomMovement())
-    fun move(movement: Movement) = move(movement.from, movement.to, movement.toPiece, movement.flags)
     fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
         val movement = getMovements(from.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
             .asSequenceOfMovements()
@@ -258,12 +312,29 @@ class Board : Copyable<Board>, Iterable<Movement> {
         move(movement)
     }
 
+    fun <E> withinMovement(movement: Movement, visitor: Board.() -> E): E {
+        move(movement)
+        val value = visitor()
+        undo()
+        return value
+    }
+
+    fun withinEachMovement(visitor: Board.() -> Unit) {
+        forEachMovement { movement ->
+            withinMovement(movement) {
+                visitor()
+            }
+        }
+    }
+
     fun <E> withMove(movement: Movement, action: Board.() -> E): E {
         move(movement)
         val result = action.invoke(this)
         undo()
         return result
     }
+
+    override fun iterator(): Iterator<Movement> = getMovements().iterator()
 
     fun isSquareAttacked(attackedPosition: Position, attackerColor: Color): Boolean =
         isSquareAttacked(attackedPosition.squareIndex, attackerColor)
@@ -549,6 +620,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         }
         var flags = MovementFlags.CASTLING_MASK
         if (moveGenFlags and ALL_FLAGS != 0) {
+            flags = flags or HAS_EXTRA_FLAGS
             flags = flags or extractExtraMovementFlags(
                 fromSquare = kingFromSquare,
                 toSquare = rookFromSquare,
@@ -727,33 +799,38 @@ class Board : Copyable<Board>, Iterable<Movement> {
         val movementTargets = ArrayList<MovementTarget>()
         while (t != ZERO) {
             val toSquare = t.countLeadingZeroBits()
-            val isEnpassant = (
+            val isEnPassant = (
                     (fromSquare - toSquare).absoluteValue == 9
                             || (fromSquare - toSquare).absoluteValue == 7
                     ) && isEmpty(toSquare)
-            val isCapture = isEnpassant || isNotEmpty(toSquare)
+            val isCapture = isEnPassant || isNotEmpty(toSquare)
+            val isPseudoValid = (moveGenFlags and PSEUDO_VALID) != 0
             if (
-                isMovementValid(
+                isPseudoValid
+                || isMovementValid(
                     fromSquare,
                     toSquare,
                     pawn,
-                    isEnpassant,
+                    isEnPassant,
                     isCapture
                 )
             ) {
                 val isPromotion = ((RANK_1 or RANK_8) and getMaskedSquare(toSquare)) != ZERO
                 for (targetPiece in getPawnTargetPieces(pawn, isPromotion)) {
                     var flags = 0uL
-                    if (isEnpassant) flags = flags or MovementFlags.EN_PASSANT_MASK
-                    if (isCapture) flags = flags or MovementFlags.CAPTURE_MASK
-                    if (isPromotion) flags = flags or MovementFlags.PROMOTION_MASK
+                    if (isPseudoValid) flags = flags or PSEUDO_VALID_MOVE
+                    if (isEnPassant) flags = flags or EN_PASSANT_MASK
+                    if (isCapture) flags = flags or CAPTURE_MASK
+                    if (isPromotion) flags = flags or PROMOTION_MASK
+                    if (isPseudoValid) flags = flags or PSEUDO_VALID_MOVE
                     if (moveGenFlags and ALL_FLAGS != 0) {
+                        flags = flags or HAS_EXTRA_FLAGS
                         flags = flags or extractExtraMovementFlags(
                             fromSquare = fromSquare,
                             toSquare = toSquare,
                             toPiece = targetPiece,
                             isCastling = false,
-                            isEnPassant = isEnpassant,
+                            isEnPassant = isEnPassant,
                             isCapture = isCapture,
                             isPromotion = isPromotion
                         )
@@ -792,8 +869,10 @@ class Board : Copyable<Board>, Iterable<Movement> {
         while (s != EMPTY) {
             val toIndex = s.countLeadingZeroBits()
             val isCapture = isNotEmpty(toIndex)
+            val isPseudoValid = (moveGenFlags and PSEUDO_VALID) != 0
             if (
-                isMovementValid(
+                isPseudoValid
+                || isMovementValid(
                     fromIndex,
                     toIndex,
                     piece,
@@ -802,8 +881,10 @@ class Board : Copyable<Board>, Iterable<Movement> {
                 )
             ) {
                 var flags = ZERO
-                if (isCapture) flags = flags or MovementFlags.CAPTURE_MASK
+                if (isPseudoValid) flags = flags or PSEUDO_VALID_MOVE
+                if (isCapture) flags = flags or CAPTURE_MASK
                 if (moveGenFlags and ALL_FLAGS != 0) {
+                    flags = flags or HAS_EXTRA_FLAGS
                     flags = flags or extractExtraMovementFlags(
                         fromSquare = fromIndex,
                         toSquare = toIndex,
@@ -819,7 +900,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
                     toIndex,
                     MovementFlags(flags)
                 )
-                if (moveGenFlags and ALL_FLAGS == 0) break
+                if (moveGenFlags and ALL_MOVEMENTS == 0) break
             }
             s = s and FULL.shift(toIndex + 1)
         }
@@ -1229,13 +1310,18 @@ class Board : Copyable<Board>, Iterable<Movement> {
         @Suppress("SpellCheckingInspection")
         const val FEN_INITIAL = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
-        private const val ALL_MOVEMENTS = 1
-        private const val ALL_FLAGS = 2
+        //@formatter:off
+        private const val ALL_MOVEMENTS = 0b0001
+        private const val ALL_FLAGS     = 0b0010
+        private const val PSEUDO_VALID  = 0b0100
+        //@formatter:on
 
-        private const val ZERO: ULong = 0u
+        //@formatter:off
+        private const val ZERO: ULong  = 0u
         private const val EMPTY: ULong = ZERO
-        private const val FULL: ULong = ULong.MAX_VALUE
-        private const val HIGHEST_BIT = 0x8000000000000000uL
+        private const val FULL: ULong  = ULong.MAX_VALUE
+        private const val HIGHEST_BIT  = 0x8000000000000000uL
+        //@formatter:on
 
         private val KING_MOVE_MASK = getKingMoveMask().toULongArray()
         private val ROOK_MOVE_MASK = getRookMoveMask().toULongArray()

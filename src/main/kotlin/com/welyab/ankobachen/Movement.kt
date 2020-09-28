@@ -20,15 +20,18 @@ package com.welyab.ankobachen
 class MovementFlags(val flags: ULong) {
 
     //@formatter:off
-    val isCapture        inline get() = flags.and(CAPTURE_MASK)         != 0uL
-    val isEnPassant      inline get() = flags.and(EN_PASSANT_MASK)      != 0uL
-    val isCastling       inline get() = flags.and(CASTLING_MASK)        != 0uL
-    val isPromotion      inline get() = flags.and(PROMOTION_MASK)       != 0uL
-    val isCheck          inline get() = flags.and(CHECK_MASK)           != 0uL
-    val isDiscoveryCheck inline get() = flags.and(DISCOVERY_CHECK_MASK) != 0uL
-    val isDoubleCheck    inline get() = flags.and(DOUBLE_CHECK_MASK)    != 0uL
-    val isCheckmate      inline get() = flags.and(CHECKMATE_MASK)       != 0uL
-    val isStalemate      inline get() = flags.and(STALEMATE_MASK)       != 0uL
+    val isCapture            inline get() = flags.and(CAPTURE_MASK)         != 0uL
+    val isEnPassant          inline get() = flags.and(EN_PASSANT_MASK)      != 0uL
+    val isCastling           inline get() = flags.and(CASTLING_MASK)        != 0uL
+    val isPromotion          inline get() = flags.and(PROMOTION_MASK)       != 0uL
+    val isCheck              inline get() = flags.and(CHECK_MASK)           != 0uL
+    val isDiscoveryCheck     inline get() = flags.and(DISCOVERY_CHECK_MASK) != 0uL
+    val isDoubleCheck        inline get() = flags.and(DOUBLE_CHECK_MASK)    != 0uL
+    val isCheckmate          inline get() = flags.and(CHECKMATE_MASK)       != 0uL
+    val isStalemate          inline get() = flags.and(STALEMATE_MASK)       != 0uL
+
+    val isExtraFlagsIncluded inline get() = flags.and(HAS_EXTRA_FLAGS)      != 0uL
+    val isPseudoValid        inline get() = flags.and(PSEUDO_VALID_MOVE)    != 0uL
     //@formatter:on
 
     override fun toString(): String =
@@ -59,6 +62,9 @@ class MovementFlags(val flags: ULong) {
         const val DOUBLE_CHECK_MASK    = 0b000000000000000001000000uL
         const val CHECKMATE_MASK       = 0b000000000000000010000000uL
         const val STALEMATE_MASK       = 0b000000000000000100000000uL
+
+        const val HAS_EXTRA_FLAGS      = 0b000000000000001000000000uL
+        const val PSEUDO_VALID_MOVE    = 0b000000000000010000000000uL
         //@formatter:on
     }
 }
@@ -344,6 +350,10 @@ class Movements(val origins: List<PieceMovement>) : Iterable<Movement> {
         return asSequenceOfMovements()
             .toList()
             .random()
+    }
+
+    fun toListOfMovements(): List<Movement> {
+        return asSequenceOfMovements().toList()
     }
 
     companion object {
