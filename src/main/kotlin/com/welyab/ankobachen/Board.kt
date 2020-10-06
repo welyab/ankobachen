@@ -58,6 +58,7 @@ import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
 import com.welyab.ankobachen.extensions.shift
 import java.util.EnumMap
+import kotlin.ULong.Companion.MAX_VALUE
 import kotlin.math.absoluteValue
 
 class BoardException(
@@ -349,6 +350,10 @@ class Board : Copyable<Board>, Iterable<Movement> {
 
     fun getPiece(position: Position): Piece = getPiece(position.squareIndex)
 
+    fun getBitboard(piece: Piece): ULong {
+        return getBitBoard(piece)
+    }
+
     fun getFen(): String = buildString {
         val pieces = arrayOfNulls<Piece>(64)
             .apply {
@@ -415,6 +420,20 @@ class Board : Copyable<Board>, Iterable<Movement> {
         epTargetSquare = log.epTargetSquare
         castlingFlags = log.castlingFlags
         sideToMove = sideToMove.opposite
+    }
+
+    fun getBitBoard(piece: Piece): ULong {
+        return bitboardByPiece[piece]!!.getBits()
+    }
+
+    fun getKingPosition(color: Color): Position {
+        val kingBitboard = when (color) {
+            WHITE -> whiteKing
+            BLACK -> blackKing
+        }
+        val squareIndex = kingBitboard.countLeadingZeroBits()
+        if (squareIndex > 63) throw BoardException("no king with color $color")
+        return Position.from(squareIndex)
     }
 
     override fun toString(): String = BoardPrinter.toString(this)
@@ -1002,22 +1021,22 @@ class Board : Copyable<Board>, Iterable<Movement> {
 
     private fun getAttackersBits(fromSquare: Int, color: Color): ULong {
         val occupied = getOccupiedBitBoard(color.opposite)
-        val queenPositions = getPieceBitBoard(QUEEN, color)
+        val queenPositions = getBitBoard(QUEEN, color)
 
-        val rookPositions = getPieceBitBoard(ROOK, color)
+        val rookPositions = getBitBoard(ROOK, color)
         val rookRays = getRookTargetSquares(fromSquare, occupied)
         var attackers = rookRays and (rookPositions or queenPositions)
 
-        val bishopPositions = getPieceBitBoard(BISHOP, color)
+        val bishopPositions = getBitBoard(BISHOP, color)
         val bishopRays = getBishopTargetSquares(fromSquare, occupied)
         attackers = attackers or (bishopRays and (bishopPositions or queenPositions))
 
-        attackers = attackers or (KING_MOVE_MASK[fromSquare] and getPieceBitBoard(KING, color))
-        attackers = attackers or (KNIGHT_MOVE_MASK[fromSquare] and getPieceBitBoard(KNIGHT, color))
+        attackers = attackers or (KING_MOVE_MASK[fromSquare] and getBitBoard(KING, color))
+        attackers = attackers or (KNIGHT_MOVE_MASK[fromSquare] and getBitBoard(KNIGHT, color))
 
         attackers = attackers or when (color) {
-            WHITE -> BLACK_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getPieceBitBoard(WHITE_PAWN)
-            BLACK -> WHITE_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getPieceBitBoard(BLACK_PAWN)
+            WHITE -> BLACK_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getBitBoard(WHITE_PAWN)
+            BLACK -> WHITE_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getBitBoard(BLACK_PAWN)
         }
 
         return attackers
@@ -1069,16 +1088,12 @@ class Board : Copyable<Board>, Iterable<Movement> {
         }
     }
 
-    private fun getPieceBitBoard(pieceType: PieceType, color: Color): ULong {
-        return getPieceBitBoard(Piece.from(pieceType, color))
-    }
-
-    private fun getPieceBitBoard(piece: Piece): ULong {
-        return bitboardByPiece[piece]!!.getBits()
+    private fun getBitBoard(pieceType: PieceType, color: Color): ULong {
+        return getBitBoard(Piece.from(pieceType, color))
     }
 
     private fun setBitBoardBit(piece: Piece, bitIndex: Int, value: Boolean) {
-        var bitboard = getPieceBitBoard(piece)
+        var bitboard = getBitBoard(piece)
         bitboard = if (value) bitboard or getMaskedSquare(bitIndex)
         else bitboard and getMaskedSquare(bitIndex).inv()
         setBitBoard(piece, bitboard)
@@ -1166,10 +1181,10 @@ class Board : Copyable<Board>, Iterable<Movement> {
         }
 
         val map = HashMap<Piece, ULong>()
-        map[fromPiece] = getPieceBitBoard(fromPiece)
-        if (capturedPiece != null) map[capturedPiece] = getPieceBitBoard(capturedPiece)
-        if (isCastling) map[fromPiece.rook] = getPieceBitBoard(fromPiece.rook)
-        if (isPromotion) map[toPiece] = getPieceBitBoard(toPiece)
+        map[fromPiece] = getBitBoard(fromPiece)
+        if (capturedPiece != null) map[capturedPiece] = getBitBoard(capturedPiece)
+        if (isCastling) map[fromPiece.rook] = getBitBoard(fromPiece.rook)
+        if (isPromotion) map[toPiece] = getBitBoard(toPiece)
         moveLog += MoveLog(
             bits = map,
             halfMoveCounter = halfMoveClock,
@@ -1319,7 +1334,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         //@formatter:off
         private const val ZERO: ULong  = 0u
         private const val EMPTY: ULong = ZERO
-        private const val FULL: ULong  = ULong.MAX_VALUE
+        private const val FULL: ULong  = MAX_VALUE
         private const val HIGHEST_BIT  = 0x8000000000000000uL
         //@formatter:on
 

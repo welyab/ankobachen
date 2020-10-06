@@ -18,6 +18,8 @@ package com.welyab.ankobachen.extensions
 import kotlin.math.absoluteValue
 import kotlin.math.sign
 
+private const val HIGHEST_BIT = 0x8000000000000000uL
+
 fun ULong.toBinaryString() =
     this.toString(2).padStart(ULong.SIZE_BITS, '0')
 
@@ -41,3 +43,7 @@ inline fun ULong.shift(bits: Int) =
         else -> this shl bits.absoluteValue
     }
 
+@ExperimentalUnsignedTypes
+fun ULong.isBitSet(bitIndex: Int): Boolean {
+    return this.and(HIGHEST_BIT.shift(bitIndex)) != 0uL
+}
