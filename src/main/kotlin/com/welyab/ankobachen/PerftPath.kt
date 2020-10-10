@@ -272,7 +272,7 @@ class PathEnumerator(
 fun main() {
     Board()
     measureTimedValue {
-        PerftCalculator("7N/8/8/2p5/1pp5/brpp4/1pprp3/qnkbK3 w - - 1 8", 9)
+        PerftCalculator("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", 5)
             .getPerftResult()
             .apply {
                 println("FEN: ${this.fen}")
