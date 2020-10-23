@@ -13,11 +13,15 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+@file:Suppress("EXPERIMENTAL_API_USAGE")
+
 package com.welyab.ankobachen.extensions
 
 import kotlin.math.absoluteValue
 import kotlin.math.sign
 
+val ZERO_UL: ULong get() = 0uL
+val FULL_UL: ULong get() = ULong.MAX_VALUE
 private const val HIGHEST_BIT = 0x8000000000000000uL
 
 fun ULong.toBinaryString() =
@@ -46,4 +50,13 @@ inline fun ULong.shift(bits: Int) =
 @ExperimentalUnsignedTypes
 fun ULong.isBitSet(bitIndex: Int): Boolean {
     return this.and(HIGHEST_BIT.shift(bitIndex)) != 0uL
+}
+
+inline fun ULong.forEachSetBit(action: (index: Int) -> Unit) {
+    var value = this
+    while (value != ZERO_UL) {
+        val bitIndex = value.countLeadingZeroBits()
+        action.invoke(bitIndex)
+        value = value.and(FULL_UL.shift(bitIndex + 1))
+    }
 }

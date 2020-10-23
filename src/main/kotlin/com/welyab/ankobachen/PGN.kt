@@ -15,9 +15,13 @@
  */
 package com.welyab.ankobachen
 
-import com.sun.xml.internal.messaging.saaj.packaging.mime.internet.HeaderTokenizer
+import com.welyab.ankobachen.Color.BLACK
+import com.welyab.ankobachen.Color.WHITE
+import com.welyab.ankobachen.Piece.Companion.isPieceLetter
+import com.welyab.ankobachen.TokenType.GAME_RESULT
+import com.welyab.ankobachen.TokenType.SINGLE_DOT
+import com.welyab.ankobachen.TokenType.TRIPLE_DOT
 import java.io.BufferedReader
-import java.io.FileInputStream
 import java.io.FileReader
 import java.io.IOException
 import java.io.InputStream
@@ -25,11 +29,11 @@ import java.io.InputStreamReader
 import java.io.StringReader
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.util.LinkedList
-import kotlin.streams.toList
+
+private const val EXCLAMATION_MARK = '!'
+private const val QUESTION_MARK = '?'
 
 private const val SUFFIX_GOOD_MOVE = "!"
 private const val SUFFIX_POOR_MOVE = "?"
@@ -65,12 +69,12 @@ enum class SevenTagRoster(val tagName: String) {
 }
 
 enum class SuffixAnnotation(val value: String) {
-    GOOD_MOVE("!"),
-    POOR_MOVE("?"),
-    VERY_GOOD_MOVE("!!"),
-    VERY_POOR_MOVE("??"),
-    SPECULATIVE_MOVE("!?"),
-    QUESTIONABLE_MOVE("?!");
+    GOOD_MOVE(SUFFIX_GOOD_MOVE),
+    POOR_MOVE(SUFFIX_POOR_MOVE),
+    VERY_GOOD_MOVE(SUFFIX_VERY_GOOD_MOVE),
+    VERY_POOR_MOVE(SUFFIX_VERY_POOR_MOVE),
+    SPECULATIVE_MOVE(SUFFIX_SPECULATIVE_MOVE),
+    QUESTIONABLE_MOVE(SUFFIX_QUESTIONABLE_MOVE);
 
     companion object {
         fun fromValue(value: String) =
@@ -315,7 +319,7 @@ private class PgnTokenizer(charSource: BufferedReader) {
             stream.back()
             token = if (value2 == '-' || value2 == '/') {
                 val value3 = stream.nextWhileInLine { !it.isWhitespace() }
-                Token(value1 + value3, TokenType.GAME_RESULT)
+                Token(value1 + value3, GAME_RESULT)
             } else {
                 Token(value1, TokenType.MOVE_NUMBER)
             }
@@ -323,14 +327,14 @@ private class PgnTokenizer(charSource: BufferedReader) {
 
         if (c == '*') {
             stream.next()
-            token = Token(c.toString(), TokenType.GAME_RESULT)
+            token = Token(c.toString(), GAME_RESULT)
         }
 
         if (c == '.') {
             val value = stream.nextWhile { it == '.' }
             token = when (value) {
-                "." -> Token(c.toString(), TokenType.SINGLE_DOT)
-                "..." -> Token(c.toString(), TokenType.TRIPLE_DOT)
+                "." -> Token(c.toString(), SINGLE_DOT)
+                "..." -> Token(c.toString(), TRIPLE_DOT)
                 else -> throw Exception("Unexpected $value")
             }
         }
@@ -367,16 +371,18 @@ private class PgnTokenizer(charSource: BufferedReader) {
     }
 }
 
-class PgnMove(
+class PgnRawMove(
     val number: Int,
     val sideToMove: Color,
     val move: String,
     val comment: String = ""
 )
 
+class PgnMove()
+
 class PgnGame(
     private val tags: Map<String, Tag>,
-    private val moves: List<PgnMove>,
+    private val moves: List<PgnRawMove>,
     private val result: GameResult
 ) {
     fun hasTag(tagName: String) = tags.containsKey(tagName)
@@ -418,12 +424,10 @@ private class PgnGameBuilder {
         sideToMove: Color,
         move: String
     ): PgnGameBuilder {
-        moves.add(
-            Move(
-                number,
-                sideToMove,
-                move
-            )
+        moves += Move(
+            number,
+            sideToMove,
+            move
         )
         return this
     }
@@ -444,7 +448,7 @@ private class PgnGameBuilder {
     }
 
     fun build() = PgnGame(
-        tags = tags.asSequence().associateBy({ it.name }, { it }),
+        tags = tags.associateBy({ it.name }, { it }),
         moves = moves.map { it.toPgnMove() },
         result = gameResult
     )
@@ -457,7 +461,7 @@ private class PgnGameBuilder {
         var variant: ArrayList<Move> = ArrayList()
     )
 
-    private fun Move.toPgnMove() = PgnMove(
+    private fun Move.toPgnMove() = PgnRawMove(
         number = this.number,
         sideToMove = this.sideToMove,
         move = this.move,
@@ -501,16 +505,16 @@ private enum class ParserState {
                 return GAME_RESULT
             }
             context.setCurrentMoveNumber(token.value.toInt())
-            val dotsToken = tokenizer.nextToken(TokenType.SINGLE_DOT, TokenType.TRIPLE_DOT)
+            val dotsToken = tokenizer.nextToken(SINGLE_DOT, TRIPLE_DOT)
             context.setCurrentSideToMove(
                 when (dotsToken.type) {
-                    TokenType.SINGLE_DOT -> Color.WHITE
-                    TokenType.TRIPLE_DOT -> Color.BLACK
+                    SINGLE_DOT -> WHITE
+                    TRIPLE_DOT -> BLACK
                     else -> throw PgnException("unexpected error")
                 }
             )
             tokenizer.skipWhitespaces()
-            return if (dotsToken.type == TokenType.SINGLE_DOT) WHITE_MOVE
+            return if (dotsToken.type == SINGLE_DOT) WHITE_MOVE
             else BLACK_MOVE
         }
     },
@@ -586,8 +590,8 @@ private enum class ParserState {
                 TokenType.COMMENT -> COMMENT
                 TokenType.OPEN_PARENTHESIS -> OPEN_VARIANT
                 else -> when (context.getCurrentSideToMove()) {
-                    Color.WHITE -> WHITE_MOVE
-                    Color.BLACK -> BLACK_MOVE
+                    WHITE -> WHITE_MOVE
+                    BLACK -> BLACK_MOVE
                 }
             }
         }
@@ -641,6 +645,84 @@ private enum class ParserState {
     ): ParserState
 }
 
+@ExperimentalStdlibApi
+private fun decodeMove(board: Board, sanMove: String) {
+    var isCheckMate = false
+    var isCheck = false
+    var isGoodMove = false
+    var isVeryGoodMove = false
+    var isPoorMove = false
+    var isVeryPoorMove = false
+    var isQuestionableMove = false
+    var isSpeculativeMove = false
+    var isPromotion = false
+    var fromPiece = Piece.from(PieceType.PAWN, board.getSideToMove())
+    var toPosition: Position? = null
+
+    var index = sanMove.lastIndex
+
+    if (index >= 0 && sanMove[index] == '#') {
+        isCheckMate = true
+        index--
+    }
+    if (index >= 0 && sanMove[index] == '+') {
+        isCheck = true
+        index--
+    }
+    if (index >= 0 && sanMove[index] == EXCLAMATION_MARK) {
+        index--
+        if (index >= 0 && sanMove[index] == EXCLAMATION_MARK) {
+            isVeryGoodMove = true
+            index--
+        } else if (index >= 0 && sanMove[index] == QUESTION_MARK) {
+            isQuestionableMove = true
+            index--
+        } else {
+            isGoodMove = true
+        }
+    }
+    if (index >= 0 && sanMove[index] == QUESTION_MARK) {
+        index--
+        if (index >= 0 && sanMove[index] == QUESTION_MARK) {
+            isVeryPoorMove = true
+            index--
+        } else if (index >= 0 && sanMove[index] == EXCLAMATION_MARK) {
+            isSpeculativeMove = true
+        } else {
+            isPoorMove = false
+        }
+    }
+    if (index >= 0 && isPieceLetter(sanMove[index])) {
+        isPromotion = true
+        index -= 2
+    }
+
+    val row = Position.rankToRow(sanMove[index--])
+    val column = Position.fileToColumn(sanMove[index--])
+    toPosition = Position.from(row, column)
+
+    var fromRow: Int? = null
+    if(index >= 0 && sanMove[index] in '1'..'8') {
+        fromRow = Position.rankToRow(sanMove[index])
+        index--
+    }
+    var fromColumn: Int? = null
+    if(index >= 0 && sanMove[index] in 'a'..'b') {
+        fromColumn = Position.fileToColumn(sanMove[index])
+        index--
+    }
+
+    if (index >= 0) {
+        fromPiece = Piece.from(PieceType.from(sanMove[index]), board.getSideToMove())
+    }
+
+    val fromPosition = if(fromRow != null && fromColumn != null) {
+        Position.from(fromRow, fromColumn)
+    } else {
+        board.getPieceLocations()
+    }
+}
+
 private class PgnParser(
     charSource: BufferedReader
 ) {
@@ -685,5 +767,16 @@ class PgnReader(
 
     override fun close() {
         charSource.close()
+    }
+}
+
+class MovementParser(private val moves: String) {
+
+    private var state = ParserState.MOVEMENT
+    private val pgnMoves = ArrayList<PgnRawMove>()
+
+    fun getPgnMoves(): List<PgnRawMove> {
+        if (pgnMoves.isNotEmpty()) return pgnMoves
+        TODO()
     }
 }

@@ -44,17 +44,16 @@ import com.welyab.ankobachen.Position.Companion.rowColumnToSquareIndex
 import java.util.EnumMap
 import kotlin.math.absoluteValue
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.time.ExperimentalTime
 import kotlin.time.measureTimedValue
 
-private val MIN_INFINITY = Int.MIN_VALUE
-private val MAX_INFINITY = Int.MAX_VALUE
+private val MIN_INFINITY = Int.MIN_VALUE / 2
+private val MAX_INFINITY = Int.MAX_VALUE / 2
 
-private val MIN_SCORE = -1000000000
-private val MAX_SCORE = 1000000000
+private val VERY_LOW_SCORE = -1000000000
+private val VERY_HIGH_SCORE = 1000000000
 
-private class Variant(val score: Int, val movements: List<Movement>) {
+private class Variant(val negamaxScore: Int, val score: Int, val movements: List<Movement>) {
 
     private fun movementsToString(): String = movements
         .asSequence()
@@ -63,6 +62,7 @@ private class Variant(val score: Int, val movements: List<Movement>) {
 
     override fun toString(): String = "score=$score, moves=${movementsToString()}"
 }
+
 
 @ExperimentalStdlibApi
 @ExperimentalUnsignedTypes
@@ -95,14 +95,19 @@ private class Minimax(
             return when {
                 previousMovement.flags.isStalemate -> 0
                 else -> when (board.getSideToMove()) {
-                    WHITE -> MIN_SCORE - cDepth
-                    BLACK -> MAX_SCORE + cDepth
+                    WHITE -> VERY_LOW_SCORE - cDepth
+                    BLACK -> VERY_HIGH_SCORE + cDepth
                 }
             }
         return getBoardValue(board) + when (board.getSideToMove()) {
             WHITE -> depth
             BLACK -> -depth
         }
+    }
+
+    private fun Color.getSign(): Int = when (this) {
+        WHITE -> 1
+        BLACK -> -1
     }
 
     private fun walk(
@@ -113,45 +118,35 @@ private class Minimax(
         previousMovement: Movement?
     ): Variant {
         evaluatedNodes++
-
+        val sign = board.getSideToMove().getSign()
         if (calculateBoardScore(cDepth, previousMovement)) {
-            return Variant(getBoardScore(board, cDepth, previousMovement), emptyList())
+            val score = getBoardScore(board, cDepth, previousMovement)
+            return Variant(sign * score, score, emptyList())
         }
-
         val movements = board.getMovements(pseudoValid = true).toListOfMovements()
-        val sortedMoves = sortMovements(previousMovement, movements)
-        var best: Variant? = null
-
-        when (board.getSideToMove()) {
-            WHITE -> {
-                var cAlpha = alpha
-                for (pseudoValidMove in sortedMoves) {
-                    if (!board.isMovementValid(pseudoValidMove)) continue
-                    val movement = board.getExtraFlags(pseudoValidMove)
-                    val deeper = board.withinMovement(movement) {
-                        walk(board, cDepth - 1, cAlpha, beta, movement)
-                    }
-                    best = getBest(board, best, movement, deeper)
-                    cAlpha = max(cAlpha, deeper.score)
-                    if (cAlpha >= beta) break
+        val orderedMoves = sortMovements(previousMovement, movements)
+        var bestVariant: Variant? = null
+        var cAlpha = alpha
+        for (pseudoValidMove in orderedMoves) {
+            if (!board.isMovementValid(pseudoValidMove)) continue
+            val movement = board.getExtraFlags(pseudoValidMove)
+            val deeper = board.withinMovement(movement) {
+                walk(board, cDepth - 1, -beta, -cAlpha, movement).let {
+                    Variant(-it.negamaxScore, it.score, it.movements)
                 }
             }
-            BLACK -> {
-                var cBeta = beta
-                for (pseudoValidMove in sortedMoves) {
-                    if (!board.isMovementValid(pseudoValidMove)) continue
-                    val movement = board.getExtraFlags(pseudoValidMove)
-                    val deeper = board.withinMovement(movement) {
-                        walk(board, cDepth - 1, alpha, cBeta, movement)
-                    }
-                    best = getBest(board, best, movement, deeper)
-                    cBeta = min(cBeta, deeper.score)
-                    if (alpha >= cBeta) break
-                }
+            if (bestVariant == null || bestVariant.negamaxScore < deeper.negamaxScore) {
+                bestVariant = createVariant(
+                    deeper.negamaxScore,
+                    deeper.score,
+                    movement,
+                    deeper.movements
+                )
             }
+            cAlpha = max(cAlpha, deeper.negamaxScore)
+            if (cAlpha >= beta) break
         }
-
-        return best!!
+        return bestVariant!!
     }
 
     private fun sortMovements(previousMovement: Movement?, movements: List<Movement>): List<Movement> {
@@ -165,28 +160,16 @@ private class Minimax(
         }
     }
 
-    private fun createVariant(score: Int, movement: Movement, movements: List<Movement>): Variant {
+    private fun createVariant(
+        negamaxScore: Int,
+        score: Int,
+        movement: Movement,
+        movements: List<Movement>
+    ): Variant {
         val list = ArrayList<Movement>(movements.size + 1)
         list += movement
         list += movements
-        return Variant(score, list)
-    }
-
-    private fun getBest(
-        board: Board,
-        currentBest: Variant?,
-        movement: Movement,
-        deeperVariant: Variant
-    ): Variant {
-        if (currentBest == null) {
-            return createVariant(deeperVariant.score, movement, deeperVariant.movements)
-        }
-        val foundBetter = when (board.getSideToMove()) {
-            WHITE -> deeperVariant.score > currentBest.score
-            BLACK -> deeperVariant.score < currentBest.score
-        }
-        return if (foundBetter) createVariant(deeperVariant.score, movement, deeperVariant.movements)
-        else currentBest
+        return Variant(negamaxScore, score, list)
     }
 
     private fun getRookStructureScore(board: Board, pieceLocations: List<PieceLocation>): Int {
@@ -322,10 +305,12 @@ private class Minimax(
                 pieceValue + positionalValue
             }
             .sum()
+
         score += getQueenStructureScore(board, pieces)
         score += getRookStructureScore(board, pieces)
         score += getBishopStructureScore(board, pieces)
         score += getPawnStructureScore(board, pieces)
+
         return score
     }
 
@@ -355,16 +340,6 @@ private class Minimax(
                 this[BLACK_BISHOP] = -340
                 this[BLACK_KNIGHT] = -325
                 this[BLACK_PAWN] = -100
-            }
-
-        private val valuesMap = EnumMap<PieceType, IntArray>(PieceType::class.java)
-            .apply {
-                this[KING] = kingValues
-                this[QUEEN] = queenValues
-                this[ROOK] = rookValues
-                this[BISHOP] = bishopValues
-                this[KNIGHT] = knightValues
-                this[PAWN] = pawnValues
             }
 
         private val kingValues = intArrayOf(
@@ -444,6 +419,16 @@ private class Minimax(
             0,  0,   0,   0,   0,   0,  0,  0
             //@formatter:on
         )
+
+        private val valuesMap = EnumMap<PieceType, IntArray>(PieceType::class.java)
+            .apply {
+                this[KING] = kingValues
+                this[QUEEN] = queenValues
+                this[ROOK] = rookValues
+                this[BISHOP] = bishopValues
+                this[KNIGHT] = knightValues
+                this[PAWN] = pawnValues
+            }
     }
 }
 
@@ -453,14 +438,14 @@ fun main() {
     Board()
     measureTimedValue {
         val minimax = Minimax(
-            fen = "4Q3/p2P2k1/1p4p1/8/7p/1B6/P6P/7K b - - 0 49",
-            depth = 7
+            fen = "4r3/p1p2p1k/2n1p3/3p4/2PP2RB/5BP1/r7/7K b - - 0 31",
+            depth = 8
         )
         minimax.find().run {
             println("checked nodes = ${minimax.evaluatedNodes}")
             println("score=$score")
-            movements.forEach {
-                println(it)
+            movements.forEachIndexed { index, movement ->
+                println("${index + 1} - $movement")
             }
         }
     }.run {

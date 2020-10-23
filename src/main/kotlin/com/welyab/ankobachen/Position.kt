@@ -142,6 +142,8 @@ enum class Position(
             if (column in 0..7) 'a' + column
             else throw PositionException("Invalid column: $column")
 
+        fun rankToRow(rank: Char) = rankToRow(rank - '0')
+
         fun rankToRow(rank: Int) =
             if (rank in 1..8) 8 - rank
             else throw PositionException("Invalid rank: $rank")

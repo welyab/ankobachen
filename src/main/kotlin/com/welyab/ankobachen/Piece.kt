@@ -143,35 +143,41 @@ enum class Piece(
 
     abstract val opposite: Piece
 
-    val king: Piece get() = when (color) {
-        WHITE -> WHITE_KING
-        BLACK -> BLACK_KING
-    }
+    val king: Piece
+        get() = when (color) {
+            WHITE -> WHITE_KING
+            BLACK -> BLACK_KING
+        }
 
-    val queen: Piece get() = when (color) {
-        WHITE -> WHITE_QUEEN
-        BLACK -> BLACK_QUEEN
-    }
+    val queen: Piece
+        get() = when (color) {
+            WHITE -> WHITE_QUEEN
+            BLACK -> BLACK_QUEEN
+        }
 
-    val rook: Piece get() = when (color) {
-        WHITE -> WHITE_ROOK
-        BLACK -> BLACK_ROOK
-    }
+    val rook: Piece
+        get() = when (color) {
+            WHITE -> WHITE_ROOK
+            BLACK -> BLACK_ROOK
+        }
 
-    val bishop: Piece get() = when (color) {
-        WHITE -> WHITE_BISHOP
-        BLACK -> BLACK_BISHOP
-    }
+    val bishop: Piece
+        get() = when (color) {
+            WHITE -> WHITE_BISHOP
+            BLACK -> BLACK_BISHOP
+        }
 
-    val knight: Piece get() = when (color) {
-        WHITE -> WHITE_KNIGHT
-        BLACK -> BLACK_KNIGHT
-    }
+    val knight: Piece
+        get() = when (color) {
+            WHITE -> WHITE_KNIGHT
+            BLACK -> BLACK_KNIGHT
+        }
 
-    val pawn: Piece get() = when (color) {
-        WHITE -> WHITE_PAWN
-        BLACK -> BLACK_PAWN
-    }
+    val pawn: Piece
+        get() = when (color) {
+            WHITE -> WHITE_PAWN
+            BLACK -> BLACK_PAWN
+        }
 
     val oppositeKing get() = opposite.king
     val oppositeQueen get() = opposite.queen
@@ -241,5 +247,23 @@ enum class Piece(
                     PAWN -> BLACK_PAWN
                 }
             }
+
+        fun isPieceLetter(char: Char): Boolean {
+            return when (char) {
+                WHITE_KING_LETTER,
+                WHITE_QUEEN_LETTER,
+                WHITE_ROOK_LETTER,
+                WHITE_BISHOP_LETTER,
+                WHITE_KNIGHT_LETTER,
+                WHITE_PAWN_LETTER,
+                BLACK_KING_LETTER,
+                BLACK_QUEEN_LETTER,
+                BLACK_ROOK_LETTER,
+                BLACK_BISHOP_LETTER,
+                BLACK_KNIGHT_LETTER,
+                BLACK_PAWN_LETTER -> true
+                else -> false
+            }
+        }
     }
 }

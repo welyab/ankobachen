@@ -56,9 +56,10 @@ import com.welyab.ankobachen.PieceType.KNIGHT
 import com.welyab.ankobachen.PieceType.PAWN
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
+import com.welyab.ankobachen.Position.Companion.from
+import com.welyab.ankobachen.extensions.forEachSetBit
 import com.welyab.ankobachen.extensions.shift
 import java.util.EnumMap
-import kotlin.ULong.Companion.MAX_VALUE
 import kotlin.math.absoluteValue
 
 class BoardException(
@@ -209,7 +210,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         return sideToMove
     }
 
-    fun setFen(fen: String): Unit {
+    fun setFen(fen: String) {
         setFen(FenString(fen))
     }
 
@@ -224,6 +225,14 @@ class Board : Copyable<Board>, Iterable<Movement> {
         return ArrayList<PieceLocation>().apply {
             getPieceLocations(color, this)
         }
+    }
+
+    fun getPieceLocations(piece: Piece): List<Position> {
+        val list = ArrayList<Position>()
+        getBitboard(piece).forEachSetBit {
+            list += from(it)
+        }
+        return list
     }
 
     fun getMovements(position: Position): Movements {
@@ -295,7 +304,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         getMovements().forEachMovement { visitor.invoke(it) }
     }
 
-    fun moveRandom(): Unit {
+    fun moveRandom() {
         move(getMovementRandom())
     }
 
@@ -380,16 +389,13 @@ class Board : Copyable<Board>, Iterable<Movement> {
         append(' ')
         append(sideToMove.letter)
         val castlingFlagsList = ArrayList<Char>(4)
-        var cf = castlingFlags
-        while (cf != ZERO) {
-            val rookIndex = cf.countLeadingZeroBits()
+        castlingFlags.forEachSetBit { rookIndex ->
             val rook = getPiece(rookIndex)
-            val rookPosition = Position.from(rookIndex)
+            val rookPosition = from(rookIndex)
             castlingFlagsList += when (rook.color) {
                 WHITE -> rookPosition.file.toUpperCase()
                 BLACK -> rookPosition.file.toLowerCase()
             }
-            cf = cf and FULL.shift(rookIndex + 1)
         }
         append(' ')
         if (castlingFlagsList.isEmpty()) {
@@ -401,7 +407,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         if (epTargetSquare == ZERO) {
             append('-')
         } else {
-            append(Position.from(epTargetSquare.countLeadingZeroBits()).getSanNotation())
+            append(from(epTargetSquare.countLeadingZeroBits()).getSanNotation())
         }
         append(' ')
         append(halfMoveClock)
@@ -433,7 +439,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         }
         val squareIndex = kingBitboard.countLeadingZeroBits()
         if (squareIndex > 63) throw BoardException("no king with color $color")
-        return Position.from(squareIndex)
+        return from(squareIndex)
     }
 
     override fun toString(): String = BoardPrinter.toString(this)
@@ -497,17 +503,14 @@ class Board : Copyable<Board>, Iterable<Movement> {
         pieceMovements: MutableList<PieceMovement>,
         moveGenFlags: Int
     ) {
-        var bb = pieceBitBoard
-        while (bb != ZERO) {
-            val fromSquare = bb.countLeadingZeroBits()
+        pieceBitBoard.forEachSetBit { fromSquare ->
             val pieceMovement = getMovements(
                 piece = piece,
                 squareIndex = fromSquare,
                 moveGenFlags = moveGenFlags
             )
             if (pieceMovement.isNotEmpty()) pieceMovements += pieceMovement
-            if (moveGenFlags and ALL_MOVEMENTS == 0 && pieceMovements.isNotEmpty()) break
-            bb = bb and FULL.shift(fromSquare + 1)
+            if (moveGenFlags and ALL_MOVEMENTS == 0 && pieceMovements.isNotEmpty()) return@forEachSetBit
         }
     }
 
@@ -551,12 +554,11 @@ class Board : Copyable<Board>, Iterable<Movement> {
         targets: MutableList<MovementTarget>,
         moveGenFlags: Int
     ) {
-        var cFlags = when (kingFrom.color) {
+        val cFlags = when (kingFrom.color) {
             WHITE -> castlingFlags and RANK_8.inv()
             BLACK -> castlingFlags and RANK_1.inv()
         }
-        while (cFlags != ZERO) {
-            val rookFrom = cFlags.countLeadingZeroBits()
+        cFlags.forEachSetBit { rookFrom ->
             getCastlingMovements(
                 king = kingFrom,
                 kingFromSquare = fromSquare,
@@ -566,8 +568,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
                 targets = targets,
                 moveGenFlags = moveGenFlags
             )
-            if (moveGenFlags and ALL_MOVEMENTS == 0 && targets.isNotEmpty()) break
-            cFlags = cFlags and FULL.shift(rookFrom + 1)
+            if (moveGenFlags and ALL_MOVEMENTS == 0 && targets.isNotEmpty()) return@forEachSetBit
         }
     }
 
@@ -814,10 +815,8 @@ class Board : Copyable<Board>, Iterable<Movement> {
         targetSquares: ULong,
         moveGenFlags: Int
     ): PieceMovement {
-        var t = targetSquares
         val movementTargets = ArrayList<MovementTarget>()
-        while (t != ZERO) {
-            val toSquare = t.countLeadingZeroBits()
+        targetSquares.forEachSetBit { toSquare ->
             val isEnPassant = (
                     (fromSquare - toSquare).absoluteValue == 9
                             || (fromSquare - toSquare).absoluteValue == 7
@@ -859,10 +858,9 @@ class Board : Copyable<Board>, Iterable<Movement> {
                         toSquare,
                         MovementFlags(flags)
                     )
-                    if (moveGenFlags and ALL_MOVEMENTS == 0) break
+                    if (moveGenFlags and ALL_MOVEMENTS == 0) return@forEachSetBit
                 }
             }
-            t = t and FULL.shift(toSquare + 1)
         }
         return PieceMovement(fromSquare, movementTargets)
     }
@@ -884,9 +882,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
         movementTargets: ArrayList<MovementTarget>,
         moveGenFlags: Int
     ) {
-        var s = targetSquares
-        while (s != EMPTY) {
-            val toIndex = s.countLeadingZeroBits()
+        targetSquares.forEachSetBit { toIndex ->
             val isCapture = isNotEmpty(toIndex)
             val isPseudoValid = (moveGenFlags and PSEUDO_VALID) != 0
             if (
@@ -919,9 +915,8 @@ class Board : Copyable<Board>, Iterable<Movement> {
                     toIndex,
                     MovementFlags(flags)
                 )
-                if (moveGenFlags and ALL_MOVEMENTS == 0) break
+                if (moveGenFlags and ALL_MOVEMENTS == 0) return@forEachSetBit
             }
-            s = s and FULL.shift(toIndex + 1)
         }
     }
 
@@ -1084,7 +1079,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
             blackBishops and maskedSquare != ZERO -> BLACK_BISHOP
             blackKnights and maskedSquare != ZERO -> BLACK_KNIGHT
             blackPawns and maskedSquare != ZERO -> BLACK_PAWN
-            else -> throw BoardException("empty square: ${Position.from(fromSquare)}")
+            else -> throw BoardException("empty square: ${from(fromSquare)}")
         }
     }
 
@@ -1125,11 +1120,8 @@ class Board : Copyable<Board>, Iterable<Movement> {
     }
 
     private fun getPieceLocations(piece: Piece, pieceBitboard: ULong, positions: MutableList<PieceLocation>) {
-        var bbt = pieceBitboard
-        while (bbt != ZERO) {
-            val bitPosition = bbt.countLeadingZeroBits()
-            positions += PieceLocation(piece, Position.from(bitPosition))
-            bbt = bbt and FULL.shift(bitPosition + 1)
+        pieceBitboard.forEachSetBit {
+            positions += PieceLocation(piece, from(it))
         }
     }
 
@@ -1334,7 +1326,6 @@ class Board : Copyable<Board>, Iterable<Movement> {
         //@formatter:off
         private const val ZERO: ULong  = 0u
         private const val EMPTY: ULong = ZERO
-        private const val FULL: ULong  = MAX_VALUE
         private const val HIGHEST_BIT  = 0x8000000000000000uL
         //@formatter:on
 
