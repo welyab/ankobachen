@@ -16,9 +16,7 @@
 package com.welyab.ankobachen
 
 import java.awt.Image
-import java.awt.Toolkit
 import javax.imageio.ImageIO
-import javax.swing.ImageIcon
 
 object Resources {
 

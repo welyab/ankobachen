@@ -13,6 +13,8 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+@file:Suppress("MemberVisibilityCanBePrivate")
+
 package com.welyab.ankobachen
 
 import com.welyab.ankobachen.Color.BLACK

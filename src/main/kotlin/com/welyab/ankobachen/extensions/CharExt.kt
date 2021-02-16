@@ -15,4 +15,4 @@
  */
 package com.welyab.ankobachen.extensions
 
-fun Char.getNumericValue() = Character.getNumericValue(this)
+val Char.numericValue get() = Character.getNumericValue(this)

@@ -13,13 +13,13 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
+@file:Suppress("unused")
+
 package com.welyab.ankobachen
 
-import com.welyab.ankobachen.extensions.getNumericValue
+import com.welyab.ankobachen.extensions.numericValue
 import com.welyab.ankobachen.extensions.shift
 import com.welyab.ankobachen.extensions.toBinaryString
-import com.welyab.ankobachen.extensions.toBinaryStringTable
-import com.welyab.ankobachen.extensions.toHexString
 import kotlin.ULong
 import kotlin.ULong as Blockers
 import kotlin.ULong as Movements
@@ -506,7 +506,7 @@ object BitboardUtil {
 
         value.toBinaryString().forEachIndexed { index, bitChar ->
             val position = Position.from(index)
-            map[position.row][position.column] = bitChar.getNumericValue()
+            map[position.row][position.column] = bitChar.numericValue
         }
 
         return map
@@ -633,14 +633,6 @@ object BitboardUtil {
         val list = ArrayList<ULong>()
         fun Pair<Int, Int>.v() = first in 0..7 && second in 0..7
         for (squareIndex in 0..63) {
-            // 0
-            // 1 1
-            // 2 -
-            // 3
-            // 4
-            // 5 5
-            // 6 -
-            // 7
             val row = Position.squareIndexToRow(squareIndex)
             val column = Position.squareIndexToColumn(squareIndex)
             val board = createBoard()
@@ -654,11 +646,5 @@ object BitboardUtil {
             list += board.toULong()
         }
         return list
-    }
-}
-
-fun main() {
-    BitboardUtil.createBlackPassedPawnMask().forEach {
-        println("0x${it.toHexString()}uL,")
     }
 }

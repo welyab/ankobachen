@@ -34,6 +34,10 @@ import com.welyab.ankobachen.BitboardUtil.getWhitePawnSingleMoveMask
 import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
 import com.welyab.ankobachen.MovementFlags.Companion.CAPTURE_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.CHECKMATE_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.CHECK_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.DISCOVERY_CHECK_MASK
+import com.welyab.ankobachen.MovementFlags.Companion.DOUBLE_CHECK_MASK
 import com.welyab.ankobachen.MovementFlags.Companion.EN_PASSANT_MASK
 import com.welyab.ankobachen.MovementFlags.Companion.HAS_EXTRA_FLAGS
 import com.welyab.ankobachen.MovementFlags.Companion.PROMOTION_MASK
@@ -324,7 +328,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
 
     fun <E> withinMovement(movement: Movement, visitor: Board.() -> E): E {
         move(movement)
-        val value = visitor()
+        val value = this.visitor()
         undo()
         return value
     }
@@ -946,16 +950,16 @@ class Board : Copyable<Board>, Iterable<Movement> {
         val attackersCount = attackers.countOneBits()
         var extraFlags = 0uL
         if (attackersCount > 0) {
-            extraFlags = extraFlags or MovementFlags.CHECK_MASK
+            extraFlags = extraFlags or CHECK_MASK
         }
         if (attackersCount == 2) {
-            extraFlags = extraFlags or MovementFlags.DOUBLE_CHECK_MASK
+            extraFlags = extraFlags or DOUBLE_CHECK_MASK
         } else if (attackersCount == 1) {
             if (!toPiece.isKing) setBitBoardBit(toPiece, toSquare, false)
             if (attackers and getMaskedSquare(toSquare) == ZERO) {
                 val rays = getQueenTargetSquares(kingIndex, getOccupiedBitBoard(toPiece.color.opposite))
                 if (rays and getMaskedSquare(fromSquare) != ZERO) {
-                    extraFlags = extraFlags or MovementFlags.DISCOVERY_CHECK_MASK
+                    extraFlags = extraFlags or DISCOVERY_CHECK_MASK
                 }
             }
             if (!toPiece.isKing) setBitBoardBit(toPiece, toSquare, true)
@@ -967,7 +971,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
             moveGenFlags = 0
         )
         if (attackersCount == 2 && kingMovements.isEmpty()) {
-            extraFlags = extraFlags or MovementFlags.CHECKMATE_MASK
+            extraFlags = extraFlags or CHECKMATE_MASK
         } else if (
             kingMovements.isEmpty()
             && getMovements(
@@ -976,7 +980,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
             ).isEmpty()
         ) {
             extraFlags = if (attackersCount > 0) {
-                extraFlags or MovementFlags.CHECKMATE_MASK
+                extraFlags or CHECKMATE_MASK
             } else {
                 extraFlags or MovementFlags.STALEMATE_MASK
             }

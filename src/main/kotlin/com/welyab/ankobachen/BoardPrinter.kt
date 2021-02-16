@@ -19,14 +19,8 @@ import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
 import com.welyab.ankobachen.Position.Companion.rowColumnToSquareIndex
 import java.awt.Graphics2D
-import java.awt.Image
-import java.awt.Toolkit
-import java.awt.geom.AffineTransform
 import java.awt.geom.Rectangle2D
 import java.awt.image.BufferedImage
-import java.io.File
-import javax.imageio.ImageIO
-import javax.swing.ImageIcon
 
 private fun Color.getAwtColor() = when (this) {
     WHITE -> java.awt.Color.WHITE
@@ -36,6 +30,8 @@ private fun Color.getAwtColor() = when (this) {
 @ExperimentalUnsignedTypes
 @ExperimentalStdlibApi
 object BoardPrinter {
+
+    private val NEWLINE = String.format("%n")
 
     fun to(board: Board): BufferedImage {
         val pieces = arrayOfNulls<Piece>(64)
@@ -47,11 +43,10 @@ object BoardPrinter {
         val squareLength = boardLength / 8.0
         val bImage = BufferedImage(boardLength, boardLength, BufferedImage.TYPE_INT_RGB)
         val g = bImage.graphics as Graphics2D
-        var color = BLACK
         for (row in 0..7) {
             for (column in 0..7) {
-                color = if(row % 2 == 0) if(column % 2 == 0) BLACK else WHITE
-                else if(column % 2 == 0) WHITE else BLACK
+                val color = if (row % 2 == 0) if (column % 2 == 0) BLACK else WHITE
+                else if (column % 2 == 0) WHITE else BLACK
                 val squareIndex = rowColumnToSquareIndex(row, column)
                 val squareShape = Rectangle2D.Double(
                     column * squareLength,

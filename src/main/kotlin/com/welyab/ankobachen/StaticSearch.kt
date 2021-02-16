@@ -123,7 +123,7 @@ private class Minimax(
             val score = getBoardScore(board, cDepth, previousMovement)
             return Variant(sign * score, score, emptyList())
         }
-        val movements = board.getMovements(pseudoValid = true).toListOfMovements()
+        val movements = board.getMovements(pseudoValid = false).toListOfMovements()
         val orderedMoves = sortMovements(previousMovement, movements)
         var bestVariant: Variant? = null
         var cAlpha = alpha
@@ -152,9 +152,12 @@ private class Minimax(
     private fun sortMovements(previousMovement: Movement?, movements: List<Movement>): List<Movement> {
         return movements.sortedBy {
             when {
-                previousMovement?.to == it.to -> 0
-                it.flags.isPromotion -> 300
-                it.flags.isCapture -> 500
+                it.flags.isCheckmate -> 0
+                previousMovement?.to == it.to -> 1
+                it.flags.isCheck -> 2
+                it.flags.isDoubleCheck -> 3
+                it.flags.isPromotion -> 4
+                it.flags.isCapture -> 5
                 else -> 999
             }
         }
@@ -438,8 +441,8 @@ fun main() {
     Board()
     measureTimedValue {
         val minimax = Minimax(
-            fen = "4r3/p1p2p1k/2n1p3/3p4/2PP2RB/5BP1/r7/7K b - - 0 31",
-            depth = 8
+            fen = "r1b1r3/pp4k1/2pQ2R1/3p4/7q/2NB4/PP3PPP/5RK1 b - - 2 23",
+            depth = 6
         )
         minimax.find().run {
             println("checked nodes = ${minimax.evaluatedNodes}")
