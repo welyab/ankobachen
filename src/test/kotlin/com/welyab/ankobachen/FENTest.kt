@@ -7,6 +7,7 @@ import org.junit.jupiter.params.provider.CsvFileSource
 @ExperimentalStdlibApi
 class FENTest {
 
+    @ExperimentalUnsignedTypes
     @ParameterizedTest
     @CsvFileSource(resources = ["/chess960/fen.csv"])
     fun `test fen parsing and generation`(fen: String) {

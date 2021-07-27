@@ -86,6 +86,17 @@ private interface PieceBitBoard {
     fun setBits(bits: ULong)
 }
 
+/**
+ * The class `Board` is responsible for generating pieces movements according to given disposition.
+ *
+ * ## Board representation
+ *
+ * ## Main functions
+ *
+ * * [getMovements(color = side to move)][Board.getMovements] - to get movements
+ *
+ * @author Welyab Paula
+ */
 @Suppress(
     "MemberVisibilityCanBePrivate",
     "unused"
@@ -397,8 +408,8 @@ class Board : Copyable<Board>, Iterable<Movement> {
             val rook = getPiece(rookIndex)
             val rookPosition = from(rookIndex)
             castlingFlagsList += when (rook.color) {
-                WHITE -> rookPosition.file.toUpperCase()
-                BLACK -> rookPosition.file.toLowerCase()
+                WHITE -> rookPosition.file.uppercaseChar()
+                BLACK -> rookPosition.file.uppercaseChar()
             }
         }
         append(' ')

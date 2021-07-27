@@ -44,7 +44,7 @@ enum class PieceType(val letter: Char) {
     val isPawn get() = this == PAWN
 
     override fun toString() =
-        name.toLowerCase().capitalize()
+        name.lowercase().replaceFirstChar { it.titlecaseChar() }
 
     @Suppress("unused")
     companion object {

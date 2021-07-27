@@ -40,7 +40,7 @@ enum class Color {
     abstract val isWhite: Boolean
     abstract val isBlack: Boolean
 
-    override fun toString() = name.toLowerCase().capitalize()
+    override fun toString() = name.lowercase().replaceFirstChar { it.titlecaseChar() }
 
     companion object {
         const val WHITE_LETTER = 'w'

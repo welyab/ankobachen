@@ -452,6 +452,6 @@ fun main() {
             }
         }
     }.run {
-        println("${duration.inSeconds} secs")
+        println("${duration.inWholeSeconds} secs")
     }
 }

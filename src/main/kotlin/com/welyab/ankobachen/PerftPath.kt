@@ -112,7 +112,7 @@ class PerftResult private constructor(val fen: String, private val results: Map<
         val rows: ArrayList<ArrayList<String>> = ArrayList<ArrayList<String>>()
         rows += headers
         fun ArrayList<ArrayList<String>>.columnLength(columnIndex: Int) =
-            asSequence().map { it[columnIndex].length }.max()!!
+            asSequence().map { it[columnIndex].length }.maxOrNull()!!
         values.forEach { rows += it }
 
         for (i in 0 until headers.size) {
@@ -122,7 +122,7 @@ class PerftResult private constructor(val fen: String, private val results: Map<
         append("┐").append('\n')
 
         for (rowIndex in 0 until rows.size) {
-            rows[rowIndex].forEachIndexed { column, value ->
+            rows[rowIndex].forEachIndexed { column, _ ->
                 append('│').append(rows[rowIndex][column].padStart(rows.columnLength(column), ' '))
             }
             append('│').append('\n')
@@ -279,6 +279,6 @@ fun main() {
                 println(this)
             }
     }.apply {
-        println("${this.duration.inSeconds}")
+        println("${this.duration.inWholeSeconds}")
     }
 }

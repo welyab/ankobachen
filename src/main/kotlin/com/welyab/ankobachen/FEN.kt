@@ -202,7 +202,7 @@ class FenString(val fen: String) {
             }
             ?.also { blackRooks += it }
 
-        if(castlingFlagsPart.length != index) throw FenException("Invalid castling flags: $castlingFlagsPart")
+        if (castlingFlagsPart.length != index) throw FenException("Invalid castling flags: $castlingFlagsPart")
 
         return CastlingFlags(
             whiteRookOne = whiteRooks.elementAtOrNull(0),
@@ -224,7 +224,7 @@ class FenString(val fen: String) {
                     blackRooks += position
                 }
                 in 'A'..'H' -> {
-                    val position = Position.from(flag.toLowerCase(), RANK_1)
+                    val position = Position.from(flag.lowercaseChar(), RANK_1)
                     if (whiteRooks.size > 2) throw error
                     whiteRooks += position
                 }

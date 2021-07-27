@@ -17,7 +17,6 @@
 
 package com.welyab.ankobachen
 
-import com.welyab.ankobachen.extensions.numericValue
 import com.welyab.ankobachen.extensions.shift
 import com.welyab.ankobachen.extensions.toBinaryString
 import kotlin.ULong
@@ -506,7 +505,7 @@ object BitboardUtil {
 
         value.toBinaryString().forEachIndexed { index, bitChar ->
             val position = Position.from(index)
-            map[position.row][position.column] = bitChar.numericValue
+            map[position.row][position.column] = Character.getNumericValue(bitChar)
         }
 
         return map
