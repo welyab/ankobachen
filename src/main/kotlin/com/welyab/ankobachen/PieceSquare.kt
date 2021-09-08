@@ -15,7 +15,4 @@
  */
 package com.welyab.ankobachen
 
-interface Copyable<T> {
-
-    fun copy(): T
-}
+data class PieceSquare(val piece: Piece, val square: Square)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Welyab da Silva Paula
+ * Copyright (C) 2021 Welyab da Silva Paula
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,33 +15,8 @@
  */
 package com.welyab.ankobachen
 
-import com.welyab.ankobachen.BitboardUtil.getBishopMagicIndexBits
-import com.welyab.ankobachen.BitboardUtil.getBishopMagics
-import com.welyab.ankobachen.BitboardUtil.getBishopMoveMask
-import com.welyab.ankobachen.BitboardUtil.getBishopMovementDatabase
-import com.welyab.ankobachen.BitboardUtil.getBlackPawnCaptureMoveMask
-import com.welyab.ankobachen.BitboardUtil.getBlackPawnDoubleMoveMask
-import com.welyab.ankobachen.BitboardUtil.getBlackPawnSingleMoveMask
-import com.welyab.ankobachen.BitboardUtil.getKingMoveMask
-import com.welyab.ankobachen.BitboardUtil.getKnightMoveMask
-import com.welyab.ankobachen.BitboardUtil.getRookMagicIndexBits
-import com.welyab.ankobachen.BitboardUtil.getRookMagics
-import com.welyab.ankobachen.BitboardUtil.getRookMoveMask
-import com.welyab.ankobachen.BitboardUtil.getRookMovementDatabase
-import com.welyab.ankobachen.BitboardUtil.getWhitePawnCaptureMoveMask
-import com.welyab.ankobachen.BitboardUtil.getWhitePawnDoubleMoveMask
-import com.welyab.ankobachen.BitboardUtil.getWhitePawnSingleMoveMask
 import com.welyab.ankobachen.Color.BLACK
 import com.welyab.ankobachen.Color.WHITE
-import com.welyab.ankobachen.MovementFlags.Companion.CAPTURE_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.CHECKMATE_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.CHECK_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.DISCOVERY_CHECK_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.DOUBLE_CHECK_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.EN_PASSANT_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.HAS_EXTRA_FLAGS
-import com.welyab.ankobachen.MovementFlags.Companion.PROMOTION_MASK
-import com.welyab.ankobachen.MovementFlags.Companion.PSEUDO_VALID_MOVE
 import com.welyab.ankobachen.Piece.BLACK_BISHOP
 import com.welyab.ankobachen.Piece.BLACK_KING
 import com.welyab.ankobachen.Piece.BLACK_KNIGHT
@@ -55,655 +30,328 @@ import com.welyab.ankobachen.Piece.WHITE_PAWN
 import com.welyab.ankobachen.Piece.WHITE_QUEEN
 import com.welyab.ankobachen.Piece.WHITE_ROOK
 import com.welyab.ankobachen.PieceType.BISHOP
-import com.welyab.ankobachen.PieceType.KING
-import com.welyab.ankobachen.PieceType.KNIGHT
-import com.welyab.ankobachen.PieceType.PAWN
 import com.welyab.ankobachen.PieceType.QUEEN
 import com.welyab.ankobachen.PieceType.ROOK
-import com.welyab.ankobachen.Position.Companion.from
-import com.welyab.ankobachen.extensions.forEachSetBit
-import com.welyab.ankobachen.extensions.shift
-import java.util.EnumMap
-import kotlin.math.absoluteValue
 
 class BoardException(
     message: String = "",
     cause: Throwable? = null
-) : ChessException(message, cause)
-
-@ExperimentalUnsignedTypes
-private data class MoveLog(
-    val bits: Map<Piece, ULong>,
-    val halfMoveCounter: Int,
-    val epTargetSquare: ULong,
-    val castlingFlags: ULong
+) : ChessException(
+    message,
+    cause
 )
 
 @ExperimentalUnsignedTypes
-private interface PieceBitBoard {
-    fun getBits(): ULong
-    fun getPiece(): Piece
-    fun setBits(bits: ULong)
-}
+class Board : Copyable<Board> {
 
-/**
- * The class `Board` is responsible for generating pieces movements according to given disposition.
- *
- * ## Board representation
- *
- * ## Main functions
- *
- * * [getMovements(color = side to move)][Board.getMovements] - to get movements
- *
- * @author Welyab Paula
- */
-@Suppress(
-    "MemberVisibilityCanBePrivate",
-    "unused"
-)
-@ExperimentalStdlibApi
-@ExperimentalUnsignedTypes
-class Board : Copyable<Board>, Iterable<Movement> {
+    // ==================================================================================
+    // ----------------------------------------------------------------------------------
+    // Board properties
+    // ----------------------------------------------------------------------------------
+    // ==================================================================================
 
-    private var whiteKing: ULong = 0uL
-    private var whiteQueens: ULong = 0uL
-    private var whiteRooks: ULong = 0uL
-    private var whiteBishops: ULong = 0uL
-    private var whiteKnights: ULong = 0uL
-    private var whitePawns: ULong = 0uL
-    private var blackKing: ULong = 0uL
-    private var blackQueens: ULong = 0uL
-    private var blackRooks: ULong = 0uL
-    private var blackBishops: ULong = 0uL
-    private var blackKnights: ULong = 0uL
-    private var blackPawns: ULong = 0uL
+    private var whites: ULong = EMPTY
+    private var blacks: ULong = EMPTY
 
-    private var sideToMove: Color = WHITE
+    private var kings: ULong = EMPTY
+    private var queens: ULong = EMPTY
+    private var rooks: ULong = EMPTY
+    private var bishops: ULong = EMPTY
+    private var knights: ULong = EMPTY
+    private var pawns: ULong = EMPTY
+
+    private var epTargetSquare: ULong = EMPTY
+    private var castlingFlags: ULong = EMPTY
+
+    private var colorToMove: Color = WHITE
     private var plyCounter: Int = 0
     private var halfMoveClock: Int = 0
     private var fullMoveCounter: Int = 0
-    private var epTargetSquare: ULong = 0uL
-    private var castlingFlags = 0uL
-    private val moveLog = ArrayList<MoveLog>()
 
-    private val bitboardByPiece = EnumMap<Piece, PieceBitBoard>(Piece::class.java).apply {
-        this[WHITE_KING] = object : PieceBitBoard {
-            override fun getPiece() = WHITE_KING
-            override fun getBits() = whiteKing
-            override fun setBits(bits: ULong) {
-                whiteKing = bits
-            }
+    // ==================================================================================
+    // ----------------------------------------------------------------------------------
+    // Board initializers
+    // ----------------------------------------------------------------------------------
+    // ==================================================================================
+
+    constructor(initialPosition: Boolean = true) : this(if (initialPosition) INITIAL_FEN else EMPTY_FEN)
+
+    constructor(fen: String) : this(
+        try {
+            FenBoardProperties(FenString(fen))
+        } catch (e: Exception) {
+            throw BoardException("Failed create board", e)
         }
-        this[WHITE_QUEEN] = object : PieceBitBoard {
-            override fun getPiece() = WHITE_QUEEN
-            override fun getBits() = whiteQueens
-            override fun setBits(bits: ULong) {
-                whiteQueens = bits
-            }
-        }
-        this[WHITE_ROOK] = object : PieceBitBoard {
-            override fun getPiece() = WHITE_ROOK
-            override fun getBits() = whiteRooks
-            override fun setBits(bits: ULong) {
-                whiteRooks = bits
-            }
-        }
-        this[WHITE_BISHOP] = object : PieceBitBoard {
-            override fun getPiece() = WHITE_BISHOP
-            override fun getBits() = whiteBishops
-            override fun setBits(bits: ULong) {
-                whiteBishops = bits
-            }
-        }
-        this[WHITE_KNIGHT] = object : PieceBitBoard {
-            override fun getPiece() = WHITE_KNIGHT
-            override fun getBits() = whiteKnights
-            override fun setBits(bits: ULong) {
-                whiteKnights = bits
-            }
-        }
-        this[WHITE_PAWN] = object : PieceBitBoard {
-            override fun getPiece() = WHITE_PAWN
-            override fun getBits() = whitePawns
-            override fun setBits(bits: ULong) {
-                whitePawns = bits
-            }
-        }
-        this[BLACK_KING] = object : PieceBitBoard {
-            override fun getPiece() = BLACK_KING
-            override fun getBits() = blackKing
-            override fun setBits(bits: ULong) {
-                blackKing = bits
-            }
-        }
-        this[BLACK_QUEEN] = object : PieceBitBoard {
-            override fun getPiece() = BLACK_QUEEN
-            override fun getBits() = blackQueens
-            override fun setBits(bits: ULong) {
-                blackQueens = bits
-            }
-        }
-        this[BLACK_ROOK] = object : PieceBitBoard {
-            override fun getPiece() = BLACK_ROOK
-            override fun getBits() = blackRooks
-            override fun setBits(bits: ULong) {
-                blackRooks = bits
-            }
-        }
-        this[BLACK_BISHOP] = object : PieceBitBoard {
-            override fun getPiece() = BLACK_BISHOP
-            override fun getBits() = blackBishops
-            override fun setBits(bits: ULong) {
-                blackBishops = bits
-            }
-        }
-        this[BLACK_KNIGHT] = object : PieceBitBoard {
-            override fun getPiece() = BLACK_KNIGHT
-            override fun getBits() = blackKnights
-            override fun setBits(bits: ULong) {
-                blackKnights = bits
-            }
-        }
-        this[BLACK_PAWN] = object : PieceBitBoard {
-            override fun getPiece() = BLACK_PAWN
-            override fun getBits() = blackPawns
-            override fun setBits(bits: ULong) {
-                blackPawns = bits
-            }
-        }
+    )
+
+    private constructor(fenBoardProperties: FenBoardProperties) : this(
+        whites = fenBoardProperties.getWhites(),
+        blacks = fenBoardProperties.getBlacks(),
+        kings = fenBoardProperties.getKings(),
+        queens = fenBoardProperties.getQueens(),
+        rooks = fenBoardProperties.getRooks(),
+        bishops = fenBoardProperties.getBishops(),
+        knights = fenBoardProperties.getKnights(),
+        pawns = fenBoardProperties.getPawns(),
+        colorToMove = fenBoardProperties.getColorToMove(),
+        plyCounter = INITIAL_PLY_COUNTER,
+        halfMoveClock = fenBoardProperties.getHalfMoveClock(),
+        fullMoveCounter = fenBoardProperties.getFullMoveCounter(),
+        epTargetSquare = fenBoardProperties.getEpTargetSquare(),
+        castlingFlags = fenBoardProperties.getCastlingFlags(),
+    )
+
+    private constructor(
+        whites: ULong,
+        blacks: ULong,
+        kings: ULong,
+        queens: ULong,
+        rooks: ULong,
+        bishops: ULong,
+        knights: ULong,
+        pawns: ULong,
+        colorToMove: Color,
+        plyCounter: Int,
+        halfMoveClock: Int,
+        fullMoveCounter: Int,
+        epTargetSquare: ULong,
+        castlingFlags: ULong
+    ) {
+        this.whites = whites
+        this.blacks = blacks
+        this.kings = kings
+        this.queens = queens
+        this.rooks = rooks
+        this.bishops = bishops
+        this.knights = knights
+        this.pawns = pawns
+        this.colorToMove = colorToMove
+        this.plyCounter = plyCounter
+        this.halfMoveClock = halfMoveClock
+        this.fullMoveCounter = fullMoveCounter
+        this.epTargetSquare = epTargetSquare
+        this.castlingFlags = castlingFlags
     }
 
-    constructor(fen: String) {
-        setFen(FenString(fen))
+    // ==================================================================================
+    // ----------------------------------------------------------------------------------
+    // Methods to get state of board
+    // ----------------------------------------------------------------------------------
+    // ==================================================================================
+
+    fun isEmpty(square: Square) = isEmpty(square.bitboard)
+    fun isNotEmpty(square: Square) = !isEmpty(square.bitboard)
+
+    fun getPiece(square: Square) =
+        if (isEmpty(square.bitboard)) throw BoardException("Can't get piece. Empty square: $square")
+        else getPiece(square.bitboard)
+
+    fun getMovements(valid: Boolean = true) = getMovements1(valid)
+
+    fun getMovements(square: Square, valid: Boolean = true) =
+        if (isEmpty(square.bitboard)) throw BoardException("Can't get movements. Empty square: $square")
+        else getMovements(square.bitboard, valid)
+
+    override fun equals(other: Any?): Boolean {
+        if (other == null || other !is Board) return false
+        return whites == other.whites
+                && blacks == other.blacks
+                && kings == other.kings
+                && queens == other.queens
+                && rooks == other.rooks
+                && bishops == other.bishops
+                && knights == other.knights
+                && pawns == other.pawns
+                && colorToMove == other.colorToMove
+                && plyCounter == other.plyCounter
+                && halfMoveClock == other.halfMoveClock
+                && fullMoveCounter == other.fullMoveCounter
+                && epTargetSquare == other.epTargetSquare
+                && castlingFlags == other.castlingFlags
     }
 
-    constructor(initialize: Boolean = true) {
-        if (initialize) setFen(FEN_INITIAL)
-    }
-
-    fun getSideToMove(): Color {
-        return sideToMove
-    }
-
-    fun setFen(fen: String) {
-        setFen(FenString(fen))
-    }
-
-    fun getPieceLocations(): List<PieceLocation> {
-        return ArrayList<PieceLocation>().apply {
-            getPieceLocations(WHITE, this)
-            getPieceLocations(BLACK, this)
-        }
-    }
-
-    fun getPieceLocations(color: Color = sideToMove): List<PieceLocation> {
-        return ArrayList<PieceLocation>().apply {
-            getPieceLocations(color, this)
-        }
-    }
-
-    fun getPieceLocations(piece: Piece): List<Position> {
-        val list = ArrayList<Position>()
-        getBitboard(piece).forEachSetBit {
-            list += from(it)
-        }
-        return list
-    }
-
-    fun getMovements(position: Position): Movements {
-        return getMovements(position.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
-    }
-
-    fun getMovements(fromPosition: Position, toPosition: Position): Movements {
-        val movements = getMovements(fromPosition)
-        if (movements.isEmpty()) return movements
-        val targets = movements
-            .getPieceMovement(0)
-            .asSequenceOfTargets()
-            .filter { it.to == toPosition.squareIndex }
-            .toList()
-        return Movements(listOf(PieceMovement(fromPosition.squareIndex, targets)))
-    }
-
-    fun getMovements(
-        color: Color = sideToMove,
-        pseudoValid: Boolean = false,
-        allFlags: Boolean = true
-    ): Movements {
-        var moveGenFlags = ALL_MOVEMENTS
-        if (allFlags) moveGenFlags = moveGenFlags or ALL_FLAGS
-        if (pseudoValid) {
-            moveGenFlags = moveGenFlags or PSEUDO_VALID
-            moveGenFlags = moveGenFlags and ALL_FLAGS.inv()
-        }
-        return getMovements(color, moveGenFlags)
-    }
-
-    fun isMovementValid(movement: Movement): Boolean {
-        if (!movement.flags.isPseudoValid) return true
-        return isMovementValid(
-            fromSquare = movement.from,
-            toSquare = movement.to,
-            toPiece = movement.toPiece,
-            isEnPassant = movement.flags.isEnPassant,
-            isCapture = movement.flags.isCapture
-        )
-    }
-
-    fun getExtraFlags(movement: Movement): Movement {
-        if (movement.flags.isExtraFlagsIncluded) return movement
-        val extraFlags = extractExtraMovementFlags(
-            fromSquare = movement.from,
-            toSquare = movement.to,
-            toPiece = movement.toPiece,
-            isCastling = movement.flags.isCastling,
-            isEnPassant = movement.flags.isEnPassant,
-            isCapture = movement.flags.isCapture,
-            isPromotion = movement.flags.isPromotion
-        )
-        return Movement(
-            from = movement.from,
-            to = movement.to,
-            toPiece = movement.toPiece,
-            flags = MovementFlags((movement.flags.flags or extraFlags))
-        )
-    }
-
-    fun getMovementRandom(): Movement {
-        return getMovements(
-            sideToMove, ALL_FLAGS or ALL_MOVEMENTS
-        ).getRandomMovement()
-    }
-
-    fun forEachMovement(visitor: (Movement) -> Unit) {
-        getMovements().forEachMovement { visitor.invoke(it) }
-    }
-
-    fun moveRandom() {
-        move(getMovementRandom())
-    }
-
-    fun move(movement: Movement) {
-        move(movement.from, movement.to, movement.toPiece, movement.flags)
-    }
-
-    fun move(from: Position, to: Position, toPiece: PieceType = QUEEN) {
-        val movement = getMovements(from.squareIndex, ALL_FLAGS or ALL_MOVEMENTS)
-            .asSequenceOfMovements()
-            .filter { it.to == to.squareIndex }
-            .filter { !it.flags.isPromotion || it.toPiece.type == toPiece }
-            .firstOrNull()
-            ?: throw BoardException("can't find valid move from $from to $to")
-        move(movement)
-    }
-
-    fun <E> withinMovement(movement: Movement, visitor: Board.() -> E): E {
-        move(movement)
-        val value = this.visitor()
-        undo()
-        return value
-    }
-
-    fun withinEachMovement(visitor: Board.() -> Unit) {
-        forEachMovement { movement ->
-            withinMovement(movement) {
-                visitor()
-            }
-        }
-    }
-
-    fun <E> withMove(movement: Movement, action: Board.() -> E): E {
-        move(movement)
-        val result = action.invoke(this)
-        undo()
+    override fun hashCode(): Int {
+        var result = 1
+        result += whites.hashCode() * 31
+        result += blacks.hashCode() * 31
+        result += kings.hashCode() * 31
+        result += queens.hashCode() * 31
+        result += rooks.hashCode() * 31
+        result += bishops.hashCode() * 31
+        result += knights.hashCode() * 31
+        result += pawns.hashCode() * 31
+        result += colorToMove.hashCode() * 31
+        result += plyCounter.hashCode() * 31
+        result += halfMoveClock.hashCode() * 31
+        result += fullMoveCounter.hashCode() * 31
+        result += epTargetSquare.hashCode() * 31
+        result += castlingFlags.hashCode() * 31
         return result
     }
 
-    override fun iterator(): Iterator<Movement> = getMovements().iterator()
+    override fun copy() = Board(
+        whites = this.whites,
+        blacks = this.blacks,
+        kings = this.kings,
+        queens = this.queens,
+        rooks = this.rooks,
+        bishops = this.bishops,
+        knights = this.knights,
+        pawns = this.pawns,
+        colorToMove = this.colorToMove,
+        plyCounter = this.plyCounter,
+        halfMoveClock = this.halfMoveClock,
+        fullMoveCounter = this.fullMoveCounter,
+        epTargetSquare = this.epTargetSquare,
+        castlingFlags = this.castlingFlags
+    )
 
-    fun isSquareAttacked(attackedPosition: Position, attackerColor: Color): Boolean =
-        isSquareAttacked(attackedPosition.squareIndex, attackerColor)
-
-    fun getAttackers(attackedPosition: Position, attackerColor: Color): List<PieceLocation> =
-        getAttackers(attackedPosition.squareIndex, attackerColor)
-
-    fun hasPreviousMove(): Boolean = moveLog.isNotEmpty()
-
-    fun isEmpty(position: Position): Boolean = isEmpty(position.squareIndex)
-    fun isNotEmpty(position: Position): Boolean = !isEmpty(position.squareIndex)
-
-    fun getPiece(position: Position): Piece = getPiece(position.squareIndex)
-
-    fun getBitboard(piece: Piece): ULong {
-        return getBitBoard(piece)
-    }
-
+    @Suppress("kotlin:S3776")
     fun getFen(): String = buildString {
-        val pieces = arrayOfNulls<Piece>(64)
-            .apply {
-                getPieceLocations()
-                    .asSequence()
-                    .forEach { this[it.position.squareIndex] = it.piece }
+        for (row in 0..7) {
+            var emptyCount = 0
+            for (column in 0..7) {
+                val square = Square.from(row, column)
+                if (isEmpty(square)) {
+                    emptyCount++
+                } else {
+                    if (emptyCount > 0) append(emptyCount)
+                    emptyCount = 0
+                    append(getPiece(square).value)
+                }
             }
-        var emptySquares = 0
-        for (squareIndex in 0..63) {
-            if (squareIndex > 0 && squareIndex % 8 == 0) {
-                if (emptySquares != 0) append(emptySquares)
-                emptySquares = 0
-                append('/')
-            }
-            val piece = pieces[squareIndex]
-            if (piece == null) emptySquares++
-            else {
-                if (emptySquares != 0) append(emptySquares)
-                emptySquares = 0
-                append(piece.letter)
-            }
+            if (emptyCount > 0) append(emptyCount)
+            if (row != 7) append('/')
         }
-        if (emptySquares != 0) append(emptySquares)
+
         append(' ')
-        append(sideToMove.letter)
-        val castlingFlagsList = ArrayList<Char>(4)
-        castlingFlags.forEachSetBit { rookIndex ->
-            val rook = getPiece(rookIndex)
-            val rookPosition = from(rookIndex)
-            castlingFlagsList += when (rook.color) {
-                WHITE -> rookPosition.file.uppercaseChar()
-                BLACK -> rookPosition.file.uppercaseChar()
-            }
-        }
+        append(colorToMove.value)
+
+        val whiteKingIndex = kings.and(whites).index
+        val blackKingIndex = kings.and(blacks).index
+        val whiteCastlingIndexes = castlingFlags.and(RANK_1).indexes
+        val blackCastlingIndexes = castlingFlags.and(RANK_8).indexes
+        val flagsList = mutableListOf<Char>()
+        if (whiteCastlingIndexes.any { it > whiteKingIndex }) flagsList += 'K'
+        if (whiteCastlingIndexes.any { it < whiteKingIndex }) flagsList += 'Q'
+        if (blackCastlingIndexes.any { it > blackKingIndex }) flagsList += 'k'
+        if (blackCastlingIndexes.any { it < blackKingIndex }) flagsList += 'q'
         append(' ')
-        if (castlingFlagsList.isEmpty()) {
-            append('-')
-        } else {
-            castlingFlagsList.forEach { append(it) }
-        }
+        if (flagsList.isNotEmpty()) flagsList.forEach { append(it) }
+        else append('-')
+
         append(' ')
-        if (epTargetSquare == ZERO) {
-            append('-')
-        } else {
-            append(from(epTargetSquare.countLeadingZeroBits()).getSanNotation())
-        }
+        if (epTargetSquare != EMPTY) append(Square.from(epTargetSquare.index).san)
+        else append('-')
+
         append(' ')
         append(halfMoveClock)
+
         append(' ')
         append(fullMoveCounter)
     }
 
-    fun undo() {
-        val log = moveLog.removeLast()
-        for (entry in log.bits) {
-            setBitBoard(entry.key, entry.value)
+    fun toString(printInfo: Boolean) = buildString {
+        if (printInfo) {
+            append("FEN: ")
+            append(getFen())
+            append(String.format("%n"))
         }
-        halfMoveClock = log.halfMoveCounter
-        if (sideToMove.isWhite) fullMoveCounter--
-        plyCounter--
-        epTargetSquare = log.epTargetSquare
-        castlingFlags = log.castlingFlags
-        sideToMove = sideToMove.opposite
+        append(this@Board.toString())
     }
 
-    fun getBitBoard(piece: Piece): ULong {
-        return bitboardByPiece[piece]!!.getBits()
+    override fun toString() = buildString {
+        append("┌───┬───┬───┬───┬───┬───┬───┬───┐")
+        append(String.format("%n"))
+        val chars = mutableListOf<Char>()
+        for (index in 0..63) {
+            val square = Square.from(index)
+            chars += if (isEmpty(square.bitboard)) ' '
+            else getPiece(square.bitboard).value
+            if ((index + 1) % 8 == 0) {
+                append("│ %c │ %c │ %c │ %c │ %c │ %c │ %c │ %c │".format(*chars.toTypedArray()))
+                append(String.format("%n"))
+                if ((index / 8) < 7) {
+                    append("├───┼───┼───┼───┼───┼───┼───┼───┤")
+                    append(String.format("%n"))
+                }
+                chars.clear()
+            }
+        }
+        append("└───┴───┴───┴───┴───┴───┴───┴───┘")
+        append(String.format("%n"))
     }
 
-    fun getKingPosition(color: Color): Position {
-        val kingBitboard = when (color) {
-            WHITE -> whiteKing
-            BLACK -> blackKing
-        }
-        val squareIndex = kingBitboard.countLeadingZeroBits()
-        if (squareIndex > 63) throw BoardException("no king with color $color")
-        return from(squareIndex)
-    }
+    fun toBitboardString() = whites.or(blacks).toBitboardStringFormatted()
 
-    override fun toString(): String = BoardPrinter.toString(this)
+    // ==================================================================================
+    // ----------------------------------------------------------------------------------
+    // Public methods to change board state
+    // ----------------------------------------------------------------------------------
+    // ==================================================================================
 
-    private fun setFen(fen: FenString) {
-        val fenInfo = fen.getFenInfo()
-        for (pieceLocation in fenInfo.piecesDisposition) {
-            setBitBoardBit(pieceLocation.piece, pieceLocation.position.squareIndex, true)
-        }
-        sideToMove = fenInfo.sideToMove
-        halfMoveClock = fenInfo.halfMoveClock
-        fullMoveCounter = fenInfo.fullMoveCounter
-        if (fenInfo.epTarget != null)
-            epTargetSquare = getMaskedSquare(fenInfo.epTarget.squareIndex)
 
-        plyCounter = 0
+    // ==================================================================================
+    // ----------------------------------------------------------------------------------
+    // Private methods with board logic
+    // ----------------------------------------------------------------------------------
+    // ==================================================================================
 
-        castlingFlags = ZERO
-
-        if (fenInfo.castlingFlags.whiteRookOne != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.whiteRookOne.squareIndex)
+    private fun getMovements1(valid: Boolean): MovementBag {
+        val movements = ArrayList<PieceMovements>(32)
+        whites.or(blacks).indexes.forEach { squareIndex ->
+            movements += getMovements(Square.from(squareIndex).bitboard, valid)
         }
-        if (fenInfo.castlingFlags.whiteRookTwo != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.whiteRookTwo.squareIndex)
-        }
-        if (fenInfo.castlingFlags.blackRookOne != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.blackRookOne.squareIndex)
-        }
-        if (fenInfo.castlingFlags.blackRookTwo != null) {
-            castlingFlags = castlingFlags or getMaskedSquare(fenInfo.castlingFlags.blackRookTwo.squareIndex)
-        }
+        return MovementBag(movements)
     }
 
     private fun getMovements(
-        squareIndex: Int,
-        @Suppress("SameParameterValue") moveGenFlags: Int
-    ): Movements = Movements(
-        listOf(
-            getMovements(
-                piece = getPiece(squareIndex),
-                squareIndex = squareIndex,
-                moveGenFlags = moveGenFlags
-            )
-        )
-    )
-
-    private fun getMovements(color: Color, moveGenFlags: Int): Movements {
-        val pieceMovements = ArrayList<PieceMovement>(24)
-        for (piece in Piece.values()) {
-            if (piece.color != color) continue
-            val bitboardPiece = bitboardByPiece[piece]!!
-            getMovements(piece, bitboardPiece.getBits(), pieceMovements, moveGenFlags)
-            if (moveGenFlags and ALL_MOVEMENTS == 0 && pieceMovements.isNotEmpty()) break
+        squareBitboard: ULong,
+        valid: Boolean
+    ): PieceMovements {
+        val piece = getPiece(squareBitboard)
+        val ownPiecesBitboard = when (piece.color) {
+            WHITE -> whites
+            BLACK -> blacks
         }
-        return Movements(pieceMovements)
-    }
-
-    private fun getMovements(
-        piece: Piece,
-        pieceBitBoard: ULong,
-        pieceMovements: MutableList<PieceMovement>,
-        moveGenFlags: Int
-    ) {
-        pieceBitBoard.forEachSetBit { fromSquare ->
-            val pieceMovement = getMovements(
-                piece = piece,
-                squareIndex = fromSquare,
-                moveGenFlags = moveGenFlags
-            )
-            if (pieceMovement.isNotEmpty()) pieceMovements += pieceMovement
-            if (moveGenFlags and ALL_MOVEMENTS == 0 && pieceMovements.isNotEmpty()) return@forEachSetBit
-        }
-    }
-
-    private fun getMovements(
-        piece: Piece,
-        squareIndex: Int,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val occupied = getOccupiedBitBoard(piece.color)
-        return when (piece.type) {
-            KING -> getKingMovements(piece, squareIndex, occupied, moveGenFlags)
-            QUEEN -> getQueenMovements(piece, squareIndex, occupied, moveGenFlags)
-            ROOK -> getRookMovements(piece, squareIndex, occupied, moveGenFlags)
-            BISHOP -> getBishopMovements(piece, squareIndex, occupied, moveGenFlags)
-            KNIGHT -> getKnightMovements(piece, squareIndex, occupied, moveGenFlags)
-            PAWN -> getPawnMovements(piece, squareIndex, occupied, moveGenFlags)
+        return when (piece) {
+            WHITE_KING -> getKingMovements(piece, squareBitboard, ownPiecesBitboard, valid)
+            WHITE_QUEEN -> getQueenMovements(piece, squareBitboard, valid)
+            WHITE_ROOK -> getRookMovements(piece, squareBitboard, valid)
+            WHITE_BISHOP -> getBishopMovements(piece, squareBitboard, valid)
+            WHITE_KNIGHT -> getKnightMovements(piece, squareBitboard, ownPiecesBitboard, valid)
+            WHITE_PAWN -> getPawnMovements(piece, squareBitboard, valid)
+            BLACK_KING -> getKingMovements(piece, squareBitboard, ownPiecesBitboard, valid)
+            BLACK_QUEEN -> getQueenMovements(piece, squareBitboard, valid)
+            BLACK_ROOK -> getRookMovements(piece, squareBitboard, valid)
+            BLACK_BISHOP -> getBishopMovements(piece, squareBitboard, valid)
+            BLACK_KNIGHT -> getKnightMovements(piece, squareBitboard, ownPiecesBitboard, valid)
+            BLACK_PAWN -> getPawnMovements(piece, squareBitboard, valid)
         }
     }
 
     private fun getKingMovements(
         piece: Piece,
-        fromSquare: Int,
+        squareBitboard: ULong,
         ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val targetSquares = KING_MOVE_MASK[fromSquare] and ownPieces.inv()
-        val movementTargets = ArrayList<MovementTarget>()
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, moveGenFlags)
-        getCastlingMovements(
-            kingFrom = piece,
-            fromSquare = fromSquare,
-            targets = movementTargets,
-            moveGenFlags = moveGenFlags
-        )
-        return PieceMovement(fromSquare, movementTargets)
+        valid: Boolean
+    ): PieceMovements {
+        val squareIndex = squareBitboard.index
+        val mask = KING_MOVE_MASK[squareIndex]
+        val destinationsBitboard = mask.and(ownPieces.inv())
+        return PieceMovements(squareIndex, destinationsBitboard, emptyList())
     }
 
-    private fun getCastlingMovements(
-        kingFrom: Piece,
-        fromSquare: Int,
-        targets: MutableList<MovementTarget>,
-        moveGenFlags: Int
-    ) {
-        val cFlags = when (kingFrom.color) {
-            WHITE -> castlingFlags and RANK_8.inv()
-            BLACK -> castlingFlags and RANK_1.inv()
-        }
-        cFlags.forEachSetBit { rookFrom ->
-            getCastlingMovements(
-                king = kingFrom,
-                kingFromSquare = fromSquare,
-                kingFinalSquare = getKingCastlingFinalSquare(kingFrom.color, fromSquare, rookFrom),
-                rookFromSquare = rookFrom,
-                rookFinalSquare = getRookCastlingFinalSquare(kingFrom.color, fromSquare, rookFrom),
-                targets = targets,
-                moveGenFlags = moveGenFlags
-            )
-            if (moveGenFlags and ALL_MOVEMENTS == 0 && targets.isNotEmpty()) return@forEachSetBit
-        }
+    private fun getQueenMovements(piece: Piece, squareBitboard: ULong, valid: Boolean): PieceMovements {
+        TODO()
     }
 
-    private fun getKingCastlingFinalSquare(color: Color, kingFrom: Int, rookFrom: Int): Int {
-        return when (color) {
-            WHITE -> if (kingFrom < rookFrom) Position.G1.squareIndex
-            else Position.C1.squareIndex
-            BLACK -> if (kingFrom < rookFrom) Position.G8.squareIndex
-            else Position.C8.squareIndex
-        }
+    private fun getRookMovements(piece: Piece, squareBitboard: ULong, valid: Boolean): PieceMovements {
+        TODO()
     }
 
-    private fun getRookCastlingFinalSquare(color: Color, kingFrom: Int, rookFrom: Int): Int {
-        return when (color) {
-            WHITE -> if (kingFrom < rookFrom) Position.F1.squareIndex
-            else Position.D1.squareIndex
-            BLACK -> if (kingFrom < rookFrom) Position.F8.squareIndex
-            else Position.D8.squareIndex
-        }
-    }
-
-    private fun getCastlingMovements(
-        king: Piece,
-        kingFromSquare: Int,
-        kingFinalSquare: Int,
-        rookFromSquare: Int,
-        rookFinalSquare: Int,
-        targets: MutableList<MovementTarget>,
-        moveGenFlags: Int
-    ) {
-        setBitBoardBit(king.rook, rookFromSquare, false)
-        getCastlingMovements2(
-            king,
-            kingFromSquare,
-            kingFinalSquare,
-            rookFromSquare,
-            rookFinalSquare,
-            targets,
-            moveGenFlags
-        )
-        setBitBoardBit(king.rook, rookFromSquare, true)
-    }
-
-    private fun getCastlingMovements2(
-        king: Piece,
-        kingFromSquare: Int,
-        kingFinalSquare: Int,
-        rookFromSquare: Int,
-        rookFinalSquare: Int,
-        targets: MutableList<MovementTarget>,
-        moveGenFlags: Int
-    ) {
-        if (isSquareAttacked(kingFromSquare, king.color.opposite)) return
-        val kingMoveDirection = if (kingFromSquare < kingFinalSquare) 1 else -1
-        var kingPathSquare = kingFromSquare
-        val occupied = getOccupiedBitBoard().and(
-            (getMaskedSquare(rookFromSquare) or getMaskedSquare(kingFromSquare)).inv()
-        )
-        while (kingPathSquare != kingFinalSquare) {
-            kingPathSquare += kingMoveDirection
-            if (isSquareAttacked(kingPathSquare, king.color.opposite)) return
-            if (occupied and getMaskedSquare(kingPathSquare) != ZERO) return
-        }
-        val rookMoveDirection = if (rookFromSquare < rookFinalSquare) 1 else -1
-        var rookPathSquare = rookFromSquare
-        while (rookPathSquare != rookFinalSquare) {
-            rookPathSquare += rookMoveDirection
-            if (occupied and getMaskedSquare(rookPathSquare) != ZERO) return
-        }
-        var flags = MovementFlags.CASTLING_MASK
-        if (moveGenFlags and ALL_FLAGS != 0) {
-            flags = flags or HAS_EXTRA_FLAGS
-            flags = flags or extractExtraMovementFlags(
-                fromSquare = kingFromSquare,
-                toSquare = rookFromSquare,
-                toPiece = king,
-                isCastling = true,
-                isEnPassant = false,
-                isCapture = false,
-                isPromotion = false
-            )
-        }
-        targets += MovementTarget(
-            king,
-            rookFromSquare,
-            MovementFlags(flags)
-        )
-    }
-
-    private fun getQueenMovements(
-        piece: Piece,
-        fromSquare: Int,
-        ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, moveGenFlags)
-        return PieceMovement(fromSquare, movementTargets)
-    }
-
-    private fun getRookMovements(
-        piece: Piece,
-        fromSquare: Int,
-        ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, moveGenFlags)
-        return PieceMovement(fromSquare, movementTargets)
-    }
-
-    private fun getBishopMovements(
-        piece: Piece,
-        fromSquare: Int,
-        ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val movementTargets = ArrayList<MovementTarget>()
-        getSlidingPieceMovements(piece, fromSquare, ownPieces, movementTargets, moveGenFlags)
-        return PieceMovement(fromSquare, movementTargets)
+    private fun getBishopMovements(piece: Piece, squareBitboard: ULong, valid: Boolean): PieceMovements {
+        TODO()
     }
 
     private fun getSlidingPieceMovements(
@@ -722,7 +370,7 @@ class Board : Copyable<Board>, Iterable<Movement> {
             ROOK -> getRookTargetSquares(fromSquare, ownPieces)
             BISHOP -> getBishopTargetSquares(fromSquare, ownPieces)
             QUEEN -> getQueenTargetSquares(fromSquare, ownPieces)
-            else -> throw BoardException("no sliding piece: $piece")
+            else -> throw Error("no sliding piece: $piece")
         }
     }
 
@@ -733,640 +381,210 @@ class Board : Copyable<Board>, Iterable<Movement> {
     }
 
     private fun getRookTargetSquares(squareIndex: Int, ownPieces: ULong): ULong {
-        val blockers = ROOK_MOVE_MASK[squareIndex] and getOccupiedBitBoard()
+        val blockers = ROOK_MOVE_MASK[squareIndex].and(whites.or(blacks))
         val key = (blockers * ROOK_MAGICS[squareIndex]).shift(64 - ROOK_MAGIC_INDEX_BITS[squareIndex])
         return ROOK_MOVEMENT_DATABASE[squareIndex][key.toInt()] and ownPieces.inv()
     }
 
     private fun getBishopTargetSquares(squareIndex: Int, ownPieces: ULong): ULong {
-        val blockers = BISHOP_MOVE_MASK[squareIndex] and getOccupiedBitBoard()
+        val blockers = BISHOP_MOVE_MASK[squareIndex].and(whites.and(blacks))
         val key = (blockers * BISHOP_MAGICS[squareIndex]).shift(64 - BISHOP_MAGIC_INDEX_BITS[squareIndex])
         return BISHOP_MOVEMENT_DATABASE[squareIndex][key.toInt()] and ownPieces.inv()
     }
 
     private fun getKnightMovements(
         piece: Piece,
-        fromSquare: Int,
+        squareBitboard: ULong,
         ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val targetSquares = KNIGHT_MOVE_MASK[fromSquare] and ownPieces.inv()
-        val movementTargets = ArrayList<MovementTarget>()
-        mountNonPawnMovements(piece, fromSquare, targetSquares, movementTargets, moveGenFlags)
-        return PieceMovement(fromSquare, movementTargets)
+        valid: Boolean
+    ): PieceMovements {
+        val squareIndex = squareBitboard.index
+        val mask = KNIGHT_MOVE_MASK[squareIndex]
+        val destinationsBitboard = mask.and(ownPieces.inv())
+        return PieceMovements(squareIndex, destinationsBitboard, emptyList())
     }
 
-    private fun getPawnMovements(
-        piece: Piece,
-        fromSquare: Int,
-        ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        return when (piece.color) {
-            WHITE -> getWhitePawnMovements(piece, fromSquare, ownPieces, moveGenFlags)
-            BLACK -> getBlackPawnMovements(piece, fromSquare, ownPieces, moveGenFlags)
-        }
+    private fun getPawnMovements(piece: Piece, squareBitboard: ULong, valid: Boolean): PieceMovements {
+        TODO()
     }
 
-    private fun getWhitePawnMovements(
-        piece: Piece,
-        fromSquare: Int,
-        ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val targetSquares = getPawnTargetSquares(
-            ownPieces,
-            getOccupiedBitBoard(),
-            WHITE_PAWN_CAPTURE_MOVE_MASK[fromSquare],
-            WHITE_PAWN_SINGLE_MOVE_MASK[fromSquare],
-            WHITE_PAWN_DOUBLE_MOVE_MASK[fromSquare]
-        )
-        return mountPawnMovements(
-            piece,
-            fromSquare,
-            targetSquares,
-            moveGenFlags
-        )
-    }
+    private fun isEmpty(squareBitboard: ULong) = whites.or(blacks).and(squareBitboard) == EMPTY
 
-    private fun getBlackPawnMovements(
-        piece: Piece,
-        fromSquare: Int,
-        ownPieces: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val targetSquares = getPawnTargetSquares(
-            ownPieces,
-            getOccupiedBitBoard(),
-            BLACK_PAWN_CAPTURE_MOVE_MASK[fromSquare],
-            BLACK_PAWN_SINGLE_MOVE_MASK[fromSquare],
-            BLACK_PAWN_DOUBLE_MOVE_MASK[fromSquare]
-        )
-        return mountPawnMovements(
-            piece,
-            fromSquare,
-            targetSquares,
-            moveGenFlags
-        )
-    }
-
-    private fun getPawnTargetSquares(
-        ownPieces: ULong,
-        allPieces: ULong,
-        captureMask: ULong,
-        singleSquareMoveMask: ULong,
-        doubleSquareMoveMask: ULong
-    ): ULong {
-        var targetSquares = captureMask and (allPieces or epTargetSquare) and ownPieces.inv()
-        targetSquares = targetSquares or (singleSquareMoveMask xor allPieces).and(singleSquareMoveMask)
-        if (doubleSquareMoveMask and allPieces == ZERO)
-            targetSquares = targetSquares or (doubleSquareMoveMask xor allPieces).and(doubleSquareMoveMask)
-        return targetSquares
-    }
-
-    private fun mountPawnMovements(
-        pawn: Piece,
-        fromSquare: Int,
-        targetSquares: ULong,
-        moveGenFlags: Int
-    ): PieceMovement {
-        val movementTargets = ArrayList<MovementTarget>()
-        targetSquares.forEachSetBit { toSquare ->
-            val isEnPassant = (
-                    (fromSquare - toSquare).absoluteValue == 9
-                            || (fromSquare - toSquare).absoluteValue == 7
-                    ) && isEmpty(toSquare)
-            val isCapture = isEnPassant || isNotEmpty(toSquare)
-            val isPseudoValid = (moveGenFlags and PSEUDO_VALID) != 0
-            if (
-                isPseudoValid
-                || isMovementValid(
-                    fromSquare,
-                    toSquare,
-                    pawn,
-                    isEnPassant,
-                    isCapture
-                )
-            ) {
-                val isPromotion = ((RANK_1 or RANK_8) and getMaskedSquare(toSquare)) != ZERO
-                for (targetPiece in getPawnTargetPieces(pawn, isPromotion)) {
-                    var flags = 0uL
-                    if (isPseudoValid) flags = flags or PSEUDO_VALID_MOVE
-                    if (isEnPassant) flags = flags or EN_PASSANT_MASK
-                    if (isCapture) flags = flags or CAPTURE_MASK
-                    if (isPromotion) flags = flags or PROMOTION_MASK
-                    if (isPseudoValid) flags = flags or PSEUDO_VALID_MOVE
-                    if (moveGenFlags and ALL_FLAGS != 0) {
-                        flags = flags or HAS_EXTRA_FLAGS
-                        flags = flags or extractExtraMovementFlags(
-                            fromSquare = fromSquare,
-                            toSquare = toSquare,
-                            toPiece = targetPiece,
-                            isCastling = false,
-                            isEnPassant = isEnPassant,
-                            isCapture = isCapture,
-                            isPromotion = isPromotion
-                        )
-                    }
-                    movementTargets += MovementTarget(
-                        targetPiece,
-                        toSquare,
-                        MovementFlags(flags)
-                    )
-                    if (moveGenFlags and ALL_MOVEMENTS == 0) return@forEachSetBit
-                }
-            }
-        }
-        return PieceMovement(fromSquare, movementTargets)
-    }
-
-    private fun getPawnTargetPieces(piece: Piece, isPromotion: Boolean): List<Piece> {
-        return if (isPromotion) when (piece.color) {
-            WHITE -> WHITE_PAWN_REPLACEMENTS
-            BLACK -> BLACK_PAWN_REPLACEMENTS
-        } else when (piece.color) {
-            WHITE -> WHITE_PAWN_NON_REPLACEMENT
-            BLACK -> BLACK_PAWN_NON_REPLACEMENT
-        }
-    }
-
-    private fun mountNonPawnMovements(
-        piece: Piece,
-        fromIndex: Int,
-        targetSquares: ULong,
-        movementTargets: ArrayList<MovementTarget>,
-        moveGenFlags: Int
-    ) {
-        targetSquares.forEachSetBit { toIndex ->
-            val isCapture = isNotEmpty(toIndex)
-            val isPseudoValid = (moveGenFlags and PSEUDO_VALID) != 0
-            if (
-                isPseudoValid
-                || isMovementValid(
-                    fromIndex,
-                    toIndex,
-                    piece,
-                    false,
-                    isCapture
-                )
-            ) {
-                var flags = ZERO
-                if (isPseudoValid) flags = flags or PSEUDO_VALID_MOVE
-                if (isCapture) flags = flags or CAPTURE_MASK
-                if (moveGenFlags and ALL_FLAGS != 0) {
-                    flags = flags or HAS_EXTRA_FLAGS
-                    flags = flags or extractExtraMovementFlags(
-                        fromSquare = fromIndex,
-                        toSquare = toIndex,
-                        toPiece = piece,
-                        isCastling = false,
-                        isEnPassant = false,
-                        isCapture = isCapture,
-                        isPromotion = false
-                    )
-                }
-                movementTargets += MovementTarget(
-                    piece,
-                    toIndex,
-                    MovementFlags(flags)
-                )
-                if (moveGenFlags and ALL_MOVEMENTS == 0) return@forEachSetBit
-            }
-        }
-    }
-
-    private fun extractExtraMovementFlags(
-        fromSquare: Int,
-        toSquare: Int,
-        toPiece: Piece,
-        isCastling: Boolean,
-        isEnPassant: Boolean,
-        isCapture: Boolean,
-        isPromotion: Boolean
-    ): ULong {
-        move(
-            fromSquare = fromSquare,
-            toSquare = toSquare,
-            toPiece = toPiece,
-            isCastling = isCastling,
-            isEnPassant = isEnPassant,
-            isCapture = isCapture,
-            isPromotion = isPromotion
-        )
-        val kingIndex = when (toPiece.color) {
-            WHITE -> blackKing.countLeadingZeroBits()
-            BLACK -> whiteKing.countLeadingZeroBits()
-        }
-        val attackers = getAttackersBits(kingIndex, toPiece.color)
-        val attackersCount = attackers.countOneBits()
-        var extraFlags = 0uL
-        if (attackersCount > 0) {
-            extraFlags = extraFlags or CHECK_MASK
-        }
-        if (attackersCount == 2) {
-            extraFlags = extraFlags or DOUBLE_CHECK_MASK
-        } else if (attackersCount == 1) {
-            if (!toPiece.isKing) setBitBoardBit(toPiece, toSquare, false)
-            if (attackers and getMaskedSquare(toSquare) == ZERO) {
-                val rays = getQueenTargetSquares(kingIndex, getOccupiedBitBoard(toPiece.color.opposite))
-                if (rays and getMaskedSquare(fromSquare) != ZERO) {
-                    extraFlags = extraFlags or DISCOVERY_CHECK_MASK
-                }
-            }
-            if (!toPiece.isKing) setBitBoardBit(toPiece, toSquare, true)
-        }
-
-        val kingMovements = getMovements(
-            piece = toPiece.oppositeKing,
-            squareIndex = kingIndex,
-            moveGenFlags = 0
-        )
-        if (attackersCount == 2 && kingMovements.isEmpty()) {
-            extraFlags = extraFlags or CHECKMATE_MASK
-        } else if (
-            kingMovements.isEmpty()
-            && getMovements(
-                color = toPiece.color.opposite,
-                moveGenFlags = 0
-            ).isEmpty()
-        ) {
-            extraFlags = if (attackersCount > 0) {
-                extraFlags or CHECKMATE_MASK
-            } else {
-                extraFlags or MovementFlags.STALEMATE_MASK
-            }
-        }
-
-        undo()
-        return extraFlags
-    }
-
-    private fun isMovementValid(
-        fromSquare: Int,
-        toSquare: Int,
-        toPiece: Piece,
-        isEnPassant: Boolean,
-        isCapture: Boolean
-    ): Boolean {
-        move(
-            fromSquare = fromSquare,
-            toSquare = toSquare,
-            toPiece = toPiece,
-            isCastling = false,
-            isEnPassant = isEnPassant,
-            isCapture = isCapture,
-            isPromotion = false
-        )
-        val isSquareAttacked = when (toPiece.color) {
-            WHITE -> isSquareAttacked(whiteKing.countLeadingZeroBits(), BLACK)
-            BLACK -> isSquareAttacked(blackKing.countLeadingZeroBits(), WHITE)
-        }
-        undo()
-        return !isSquareAttacked
-    }
-
-    private fun isSquareAttacked(fromSquare: Int, color: Color): Boolean {
-        return getAttackersBits(fromSquare, color) != ZERO
-    }
-
-    private fun getAttackersBits(fromSquare: Int, color: Color): ULong {
-        val occupied = getOccupiedBitBoard(color.opposite)
-        val queenPositions = getBitBoard(QUEEN, color)
-
-        val rookPositions = getBitBoard(ROOK, color)
-        val rookRays = getRookTargetSquares(fromSquare, occupied)
-        var attackers = rookRays and (rookPositions or queenPositions)
-
-        val bishopPositions = getBitBoard(BISHOP, color)
-        val bishopRays = getBishopTargetSquares(fromSquare, occupied)
-        attackers = attackers or (bishopRays and (bishopPositions or queenPositions))
-
-        attackers = attackers or (KING_MOVE_MASK[fromSquare] and getBitBoard(KING, color))
-        attackers = attackers or (KNIGHT_MOVE_MASK[fromSquare] and getBitBoard(KNIGHT, color))
-
-        attackers = attackers or when (color) {
-            WHITE -> BLACK_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getBitBoard(WHITE_PAWN)
-            BLACK -> WHITE_PAWN_CAPTURE_MOVE_MASK[fromSquare] and getBitBoard(BLACK_PAWN)
-        }
-
-        return attackers
-    }
-
-    private fun getAttackers(attackedSquare: Int, attackerColor: Color): List<PieceLocation> {
-        val attackersBits = getAttackersBits(attackedSquare, attackerColor)
-        val attackers = ArrayList<PieceLocation>()
-        when (attackerColor) {
-            WHITE -> {
-                getPieceLocations(WHITE_KING, whiteKing and attackersBits, attackers)
-                getPieceLocations(WHITE_QUEEN, whiteQueens and attackersBits, attackers)
-                getPieceLocations(WHITE_ROOK, whiteRooks and attackersBits, attackers)
-                getPieceLocations(WHITE_BISHOP, whiteBishops and attackersBits, attackers)
-                getPieceLocations(WHITE_KNIGHT, whiteKnights and attackersBits, attackers)
-                getPieceLocations(WHITE_PAWN, whitePawns and attackersBits, attackers)
-            }
-            BLACK -> {
-                getPieceLocations(BLACK_KING, blackKing and attackersBits, attackers)
-                getPieceLocations(BLACK_QUEEN, blackQueens and attackersBits, attackers)
-                getPieceLocations(BLACK_ROOK, blackRooks and attackersBits, attackers)
-                getPieceLocations(BLACK_BISHOP, blackBishops and attackersBits, attackers)
-                getPieceLocations(BLACK_KNIGHT, blackKnights and attackersBits, attackers)
-                getPieceLocations(BLACK_PAWN, blackPawns and attackersBits, attackers)
-            }
-        }
-        return attackers
-    }
-
-    private fun isEmpty(fromSquare: Int): Boolean = getOccupiedBitBoard() and getMaskedSquare(fromSquare) == ZERO
-    private fun isNotEmpty(fromSquare: Int) = !isEmpty(fromSquare)
-
-    private fun getPiece(fromSquare: Int): Piece {
-        val maskedSquare = getMaskedSquare(fromSquare)
+    private fun getPiece(squareBitboard: ULong): Piece {
         return when {
-            whiteKing and maskedSquare != ZERO -> WHITE_KING
-            whiteQueens and maskedSquare != ZERO -> WHITE_QUEEN
-            whiteRooks and maskedSquare != ZERO -> WHITE_ROOK
-            whiteBishops and maskedSquare != ZERO -> WHITE_BISHOP
-            whiteKnights and maskedSquare != ZERO -> WHITE_KNIGHT
-            whitePawns and maskedSquare != ZERO -> WHITE_PAWN
-            blackKing and maskedSquare != ZERO -> BLACK_KING
-            blackQueens and maskedSquare != ZERO -> BLACK_QUEEN
-            blackRooks and maskedSquare != ZERO -> BLACK_ROOK
-            blackBishops and maskedSquare != ZERO -> BLACK_BISHOP
-            blackKnights and maskedSquare != ZERO -> BLACK_KNIGHT
-            blackPawns and maskedSquare != ZERO -> BLACK_PAWN
-            else -> throw BoardException("empty square: ${from(fromSquare)}")
-        }
-    }
-
-    private fun getBitBoard(pieceType: PieceType, color: Color): ULong {
-        return getBitBoard(Piece.from(pieceType, color))
-    }
-
-    private fun setBitBoardBit(piece: Piece, bitIndex: Int, value: Boolean) {
-        var bitboard = getBitBoard(piece)
-        bitboard = if (value) bitboard or getMaskedSquare(bitIndex)
-        else bitboard and getMaskedSquare(bitIndex).inv()
-        setBitBoard(piece, bitboard)
-    }
-
-    private fun setBitBoard(piece: Piece, bitboard: ULong) {
-        bitboardByPiece[piece]!!.setBits(bitboard)
-    }
-
-    private fun getPieceLocations(color: Color, locations: MutableList<PieceLocation>) {
-        when (color) {
-            WHITE -> {
-                getPieceLocations(WHITE_KING, whiteKing, locations)
-                getPieceLocations(WHITE_QUEEN, whiteQueens, locations)
-                getPieceLocations(WHITE_ROOK, whiteRooks, locations)
-                getPieceLocations(WHITE_BISHOP, whiteBishops, locations)
-                getPieceLocations(WHITE_KNIGHT, whiteKnights, locations)
-                getPieceLocations(WHITE_PAWN, whitePawns, locations)
+            whites.and(squareBitboard) != EMPTY -> when {
+                kings.and(squareBitboard) != EMPTY -> WHITE_KING
+                queens.and(squareBitboard) != EMPTY -> WHITE_QUEEN
+                rooks.and(squareBitboard) != EMPTY -> WHITE_ROOK
+                bishops.and(squareBitboard) != EMPTY -> WHITE_BISHOP
+                knights.and(squareBitboard) != EMPTY -> WHITE_KNIGHT
+                pawns.and(squareBitboard) != EMPTY -> WHITE_PAWN
+                else -> throwUnbelievableError()
             }
-            BLACK -> {
-                getPieceLocations(BLACK_KING, blackKing, locations)
-                getPieceLocations(BLACK_QUEEN, blackQueens, locations)
-                getPieceLocations(BLACK_ROOK, blackRooks, locations)
-                getPieceLocations(BLACK_BISHOP, blackBishops, locations)
-                getPieceLocations(BLACK_KNIGHT, blackKnights, locations)
-                getPieceLocations(BLACK_PAWN, blackPawns, locations)
+            blacks.and(squareBitboard) != EMPTY -> when {
+                kings.and(squareBitboard) != EMPTY -> BLACK_KING
+                queens.and(squareBitboard) != EMPTY -> BLACK_QUEEN
+                rooks.and(squareBitboard) != EMPTY -> BLACK_ROOK
+                bishops.and(squareBitboard) != EMPTY -> BLACK_BISHOP
+                knights.and(squareBitboard) != EMPTY -> BLACK_KNIGHT
+                pawns.and(squareBitboard) != EMPTY -> BLACK_PAWN
+                else -> throwUnbelievableError()
             }
+            else -> throwUnbelievableError()
         }
     }
 
-    private fun getPieceLocations(piece: Piece, pieceBitboard: ULong, positions: MutableList<PieceLocation>) {
-        pieceBitboard.forEachSetBit {
-            positions += PieceLocation(piece, from(it))
-        }
-    }
-
-    private fun getMaskedSquare(fromSquare: Int): ULong = HIGHEST_BIT.shift(fromSquare)
-
-    private fun getOccupiedBitBoard(): ULong {
-        return getOccupiedBitBoard(WHITE) or getOccupiedBitBoard(BLACK)
-    }
-
-    private fun getOccupiedBitBoard(color: Color): ULong {
-        return when (color) {
-            WHITE -> whiteKing or whiteQueens or whiteRooks or whiteBishops or whiteKnights or whitePawns
-            BLACK -> blackKing or blackQueens or blackRooks or blackBishops or blackKnights or blackPawns
-        }
-    }
-
-    private fun move(
-        fromSquare: Int,
-        toSquare: Int,
-        toPiece: Piece,
-        flags: MovementFlags
-    ) {
-        move(
-            fromSquare = fromSquare,
-            toSquare = toSquare,
-            toPiece = toPiece,
-            isCastling = flags.isCastling,
-            isEnPassant = flags.isEnPassant,
-            isCapture = flags.isCapture,
-            isPromotion = flags.isPromotion
-        )
-    }
-
-    private fun move(
-        fromSquare: Int,
-        toSquare: Int,
-        toPiece: Piece,
-        isCastling: Boolean,
-        isEnPassant: Boolean,
-        isCapture: Boolean,
-        isPromotion: Boolean
-    ) {
-        val fromPiece = if (isPromotion) toPiece.pawn else toPiece
-        val enPassantCapturedSquare = getEnPassantCapturedSquare(toPiece.color, toSquare)
-        val capturedPiece = when {
-            isEnPassant -> getPiece(enPassantCapturedSquare)
-            isCapture -> getPiece(toSquare)
-            else -> null
-        }
-
-        val map = HashMap<Piece, ULong>()
-        map[fromPiece] = getBitBoard(fromPiece)
-        if (capturedPiece != null) map[capturedPiece] = getBitBoard(capturedPiece)
-        if (isCastling) map[fromPiece.rook] = getBitBoard(fromPiece.rook)
-        if (isPromotion) map[toPiece] = getBitBoard(toPiece)
-        moveLog += MoveLog(
-            bits = map,
-            halfMoveCounter = halfMoveClock,
-            epTargetSquare = epTargetSquare,
-            castlingFlags = castlingFlags
-        )
-        if (isCastling) {
-            val kingDestination = getKingCastlingFinalSquare(fromPiece.color, fromSquare, toSquare)
-            val rookDestination = getRookCastlingFinalSquare(fromPiece.color, fromSquare, toSquare)
-            setBitBoardBit(fromPiece, fromSquare, false)
-            setBitBoardBit(fromPiece.rook, toSquare, false)
-            setBitBoardBit(fromPiece, kingDestination, true)
-            setBitBoardBit(fromPiece.rook, rookDestination, true)
-        } else {
-            setBitBoardBit(fromPiece, fromSquare, false)
-            setBitBoardBit(toPiece, toSquare, true)
-            if (capturedPiece != null) {
-                setBitBoardBit(
-                    capturedPiece,
-                    if (isEnPassant) enPassantCapturedSquare else toSquare,
-                    false
-                )
-            }
-        }
-        if (fromPiece.isKing) {
-            castlingFlags = when (fromPiece.color) {
-                WHITE -> castlingFlags and RANK_1.inv()
-                BLACK -> castlingFlags and RANK_8.inv()
-            }
-        } else if (fromPiece.isRook) {
-            castlingFlags = castlingFlags and getMaskedSquare(fromSquare).inv()
-        }
-        if (capturedPiece != null && capturedPiece.isRook) {
-            castlingFlags = castlingFlags and getMaskedSquare(toSquare).inv()
-        }
-        epTargetSquare =
-            if (fromPiece.isPawn && (fromSquare - toSquare).absoluteValue == 16)
-                when (fromPiece.color) {
-                    WHITE -> WHITE_PAWN_SINGLE_MOVE_MASK[fromSquare]
-                    BLACK -> BLACK_PAWN_SINGLE_MOVE_MASK[fromSquare]
-                }
-            else EMPTY
-
-        halfMoveClock = if (fromPiece.isPawn || isCapture) halfMoveClock + 1 else 0
-        if (sideToMove.isBlack) fullMoveCounter++
-        plyCounter++
-        sideToMove = sideToMove.opposite
-    }
-
-    private fun getEnPassantCapturedSquare(color: Color, toSquare: Int): Int {
-        return when (color) {
-            WHITE -> toSquare + 8
-            BLACK -> toSquare - 8
-        }
-    }
-
-    override fun copy(): Board {
-        val copy = Board(false)
-
-        copy.whiteKing = whiteKing
-        copy.whiteQueens = whiteQueens
-        copy.whiteRooks = whiteRooks
-        copy.whiteBishops = whiteBishops
-        copy.whiteKnights = whiteKnights
-        copy.whitePawns = whitePawns
-        copy.blackKing = blackKing
-        copy.blackQueens = blackQueens
-        copy.blackRooks = blackRooks
-        copy.blackBishops = blackBishops
-        copy.blackKnights = blackKnights
-        copy.blackPawns = blackPawns
-
-        copy.sideToMove = sideToMove
-        copy.plyCounter = plyCounter
-        copy.halfMoveClock = halfMoveClock
-        copy.fullMoveCounter = fullMoveCounter
-        copy.epTargetSquare = epTargetSquare
-        copy.castlingFlags = castlingFlags
-
-        copy.moveLog.addAll(moveLog)
-
-        return copy
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Board
-
-        if (whiteKing != other.whiteKing) return false
-        if (whiteQueens != other.whiteQueens) return false
-        if (whiteRooks != other.whiteRooks) return false
-        if (whiteBishops != other.whiteBishops) return false
-        if (whiteKnights != other.whiteKnights) return false
-        if (whitePawns != other.whitePawns) return false
-        if (blackKing != other.blackKing) return false
-        if (blackQueens != other.blackQueens) return false
-        if (blackRooks != other.blackRooks) return false
-        if (blackBishops != other.blackBishops) return false
-        if (blackKnights != other.blackKnights) return false
-        if (blackPawns != other.blackPawns) return false
-        if (sideToMove != other.sideToMove) return false
-        if (plyCounter != other.plyCounter) return false
-        if (halfMoveClock != other.halfMoveClock) return false
-        if (fullMoveCounter != other.fullMoveCounter) return false
-        if (epTargetSquare != other.epTargetSquare) return false
-        if (castlingFlags != other.castlingFlags) return false
-        if (moveLog != other.moveLog) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = whiteKing.hashCode()
-        result = 31 * result + whiteQueens.hashCode()
-        result = 31 * result + whiteRooks.hashCode()
-        result = 31 * result + whiteBishops.hashCode()
-        result = 31 * result + whiteKnights.hashCode()
-        result = 31 * result + whitePawns.hashCode()
-        result = 31 * result + blackKing.hashCode()
-        result = 31 * result + blackQueens.hashCode()
-        result = 31 * result + blackRooks.hashCode()
-        result = 31 * result + blackBishops.hashCode()
-        result = 31 * result + blackKnights.hashCode()
-        result = 31 * result + blackPawns.hashCode()
-        result = 31 * result + sideToMove.hashCode()
-        result = 31 * result + plyCounter
-        result = 31 * result + halfMoveClock
-        result = 31 * result + fullMoveCounter
-        result = 31 * result + epTargetSquare.hashCode()
-        result = 31 * result + castlingFlags.hashCode()
-        result = 31 * result + moveLog.hashCode()
-        return result
-    }
+    private fun throwUnbelievableError(): Nothing = throw Error("Unbelievable error")
 
     companion object {
-        @Suppress("SpellCheckingInspection")
-        const val FEN_INITIAL = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        const val INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        const val EMPTY_FEN = "8/8/8/8/8/8/8/8 w - - 0 1"
 
-        //@formatter:off
-        private const val ALL_MOVEMENTS = 0b0001
-        private const val ALL_FLAGS     = 0b0010
-        private const val PSEUDO_VALID  = 0b0100
-        //@formatter:on
+        const val RANK_1 = 0xffUL
+        const val RANK_8 = 0xff00000000000000UL
 
-        //@formatter:off
-        private const val ZERO: ULong  = 0u
-        private const val EMPTY: ULong = ZERO
-        private const val HIGHEST_BIT  = 0x8000000000000000uL
-        //@formatter:on
+        const val INITIAL_PLY_COUNTER = 0
 
-        private val KING_MOVE_MASK = getKingMoveMask().toULongArray()
-        private val ROOK_MOVE_MASK = getRookMoveMask().toULongArray()
-        private val BISHOP_MOVE_MASK = getBishopMoveMask().toULongArray()
-        private val KNIGHT_MOVE_MASK = getKnightMoveMask().toULongArray()
-        private val ROOK_MOVEMENT_DATABASE = getRookMovementDatabase()
-        private val BISHOP_MOVEMENT_DATABASE = getBishopMovementDatabase()
-        private val WHITE_PAWN_SINGLE_MOVE_MASK = getWhitePawnSingleMoveMask().toULongArray()
-        private val BLACK_PAWN_SINGLE_MOVE_MASK = getBlackPawnSingleMoveMask().toULongArray()
-        private val WHITE_PAWN_CAPTURE_MOVE_MASK = getWhitePawnCaptureMoveMask().toULongArray()
-        private val BLACK_PAWN_CAPTURE_MOVE_MASK = getBlackPawnCaptureMoveMask().toULongArray()
-        private val WHITE_PAWN_DOUBLE_MOVE_MASK = getWhitePawnDoubleMoveMask().toULongArray()
-        private val BLACK_PAWN_DOUBLE_MOVE_MASK = getBlackPawnDoubleMoveMask().toULongArray()
-        private val ROOK_MAGICS = getRookMagics().toULongArray()
-        private val BISHOP_MAGICS = getBishopMagics().toULongArray()
-        private val ROOK_MAGIC_INDEX_BITS = getRookMagicIndexBits().toIntArray()
-        private val BISHOP_MAGIC_INDEX_BITS = getBishopMagicIndexBits().toIntArray()
-        private val WHITE_PAWN_REPLACEMENTS = listOf(WHITE_QUEEN, WHITE_ROOK, WHITE_BISHOP, WHITE_KNIGHT)
-        private val BLACK_PAWN_REPLACEMENTS = listOf(BLACK_QUEEN, BLACK_ROOK, BLACK_BISHOP, BLACK_KNIGHT)
-        private val WHITE_PAWN_NON_REPLACEMENT = listOf(WHITE_PAWN)
-        private val BLACK_PAWN_NON_REPLACEMENT = listOf(BLACK_PAWN)
-        private val RANK_1 = 0x00000000000000ffuL
-        private val RANK_8 = 0xff00000000000000uL
-        private val LEFT_CASTLING_FINAL_POSITIONS = 0x3000000000000030uL
-        private val RIGHT_CASTLING_FINAL_POSITIONS = 0x0600000000000006uL
+        private val KING_MOVE_MASK = ulongArrayOf(
+            0x40c0000000000000uL, 0xa0e0000000000000uL, 0x5070000000000000uL, 0x2838000000000000uL,
+            0x141c000000000000uL, 0x0a0e000000000000uL, 0x0507000000000000uL, 0x0203000000000000uL,
+            0xc040c00000000000uL, 0xe0a0e00000000000uL, 0x7050700000000000uL, 0x3828380000000000uL,
+            0x1c141c0000000000uL, 0x0e0a0e0000000000uL, 0x0705070000000000uL, 0x0302030000000000uL,
+            0x00c040c000000000uL, 0x00e0a0e000000000uL, 0x0070507000000000uL, 0x0038283800000000uL,
+            0x001c141c00000000uL, 0x000e0a0e00000000uL, 0x0007050700000000uL, 0x0003020300000000uL,
+            0x0000c040c0000000uL, 0x0000e0a0e0000000uL, 0x0000705070000000uL, 0x0000382838000000uL,
+            0x00001c141c000000uL, 0x00000e0a0e000000uL, 0x0000070507000000uL, 0x0000030203000000uL,
+            0x000000c040c00000uL, 0x000000e0a0e00000uL, 0x0000007050700000uL, 0x0000003828380000uL,
+            0x0000001c141c0000uL, 0x0000000e0a0e0000uL, 0x0000000705070000uL, 0x0000000302030000uL,
+            0x00000000c040c000uL, 0x00000000e0a0e000uL, 0x0000000070507000uL, 0x0000000038283800uL,
+            0x000000001c141c00uL, 0x000000000e0a0e00uL, 0x0000000007050700uL, 0x0000000003020300uL,
+            0x0000000000c040c0uL, 0x0000000000e0a0e0uL, 0x0000000000705070uL, 0x0000000000382838uL,
+            0x00000000001c141cuL, 0x00000000000e0a0euL, 0x0000000000070507uL, 0x0000000000030203uL,
+            0x000000000000c040uL, 0x000000000000e0a0uL, 0x0000000000007050uL, 0x0000000000003828uL,
+            0x0000000000001c14uL, 0x0000000000000e0auL, 0x0000000000000705uL, 0x0000000000000302uL
+        )
+
+        private val ROOK_MOVE_MASK = ulongArrayOf(
+            0x7e80808080808000uL, 0x3e40404040404000uL, 0x5e20202020202000uL, 0x6e10101010101000uL,
+            0x7608080808080800uL, 0x7a04040404040400uL, 0x7c02020202020200uL, 0x7e01010101010100uL,
+            0x007e808080808000uL, 0x003e404040404000uL, 0x005e202020202000uL, 0x006e101010101000uL,
+            0x0076080808080800uL, 0x007a040404040400uL, 0x007c020202020200uL, 0x007e010101010100uL,
+            0x00807e8080808000uL, 0x00403e4040404000uL, 0x00205e2020202000uL, 0x00106e1010101000uL,
+            0x0008760808080800uL, 0x00047a0404040400uL, 0x00027c0202020200uL, 0x00017e0101010100uL,
+            0x0080807e80808000uL, 0x0040403e40404000uL, 0x0020205e20202000uL, 0x0010106e10101000uL,
+            0x0008087608080800uL, 0x0004047a04040400uL, 0x0002027c02020200uL, 0x0001017e01010100uL,
+            0x008080807e808000uL, 0x004040403e404000uL, 0x002020205e202000uL, 0x001010106e101000uL,
+            0x0008080876080800uL, 0x000404047a040400uL, 0x000202027c020200uL, 0x000101017e010100uL,
+            0x00808080807e8000uL, 0x00404040403e4000uL, 0x00202020205e2000uL, 0x00101010106e1000uL,
+            0x0008080808760800uL, 0x00040404047a0400uL, 0x00020202027c0200uL, 0x00010101017e0100uL,
+            0x0080808080807e00uL, 0x0040404040403e00uL, 0x0020202020205e00uL, 0x0010101010106e00uL,
+            0x0008080808087600uL, 0x0004040404047a00uL, 0x0002020202027c00uL, 0x0001010101017e00uL,
+            0x008080808080807euL, 0x004040404040403euL, 0x002020202020205euL, 0x001010101010106euL,
+            0x0008080808080876uL, 0x000404040404047auL, 0x000202020202027cuL, 0x000101010101017euL
+        )
+
+        private val BISHOP_MOVE_MASK = ulongArrayOf(
+            0x0040201008040200uL, 0x0020100804020000uL, 0x0050080402000000uL, 0x0028440200000000uL,
+            0x0014224000000000uL, 0x000a102040000000uL, 0x0004081020400000uL, 0x0002040810204000uL,
+            0x0000402010080400uL, 0x0000201008040200uL, 0x0000500804020000uL, 0x0000284402000000uL,
+            0x0000142240000000uL, 0x00000a1020400000uL, 0x0000040810204000uL, 0x0000020408102000uL,
+            0x0040004020100800uL, 0x0020002010080400uL, 0x0050005008040200uL, 0x0028002844020000uL,
+            0x0014001422400000uL, 0x000a000a10204000uL, 0x0004000408102000uL, 0x0002000204081000uL,
+            0x0020400040201000uL, 0x0010200020100800uL, 0x0008500050080400uL, 0x0044280028440200uL,
+            0x0022140014224000uL, 0x00100a000a102000uL, 0x0008040004081000uL, 0x0004020002040800uL,
+            0x0010204000402000uL, 0x0008102000201000uL, 0x0004085000500800uL, 0x0002442800284400uL,
+            0x0040221400142200uL, 0x0020100a000a1000uL, 0x0010080400040800uL, 0x0008040200020400uL,
+            0x0008102040004000uL, 0x0004081020002000uL, 0x0002040850005000uL, 0x0000024428002800uL,
+            0x0000402214001400uL, 0x004020100a000a00uL, 0x0020100804000400uL, 0x0010080402000200uL,
+            0x0004081020400000uL, 0x0002040810200000uL, 0x0000020408500000uL, 0x0000000244280000uL,
+            0x0000004022140000uL, 0x00004020100a0000uL, 0x0040201008040000uL, 0x0020100804020000uL,
+            0x0002040810204000uL, 0x0000020408102000uL, 0x0000000204085000uL, 0x0000000002442800uL,
+            0x0000000040221400uL, 0x0000004020100a00uL, 0x0000402010080400uL, 0x0040201008040200uL
+        )
+
+        private val KNIGHT_MOVE_MASK = ulongArrayOf(
+            0x0020400000000000uL, 0x0010a00000000000uL, 0x0088500000000000uL, 0x0044280000000000uL,
+            0x0022140000000000uL, 0x00110a0000000000uL, 0x0008050000000000uL, 0x0004020000000000uL,
+            0x2000204000000000uL, 0x100010a000000000uL, 0x8800885000000000uL, 0x4400442800000000uL,
+            0x2200221400000000uL, 0x1100110a00000000uL, 0x0800080500000000uL, 0x0400040200000000uL,
+            0x4020002040000000uL, 0xa0100010a0000000uL, 0x5088008850000000uL, 0x2844004428000000uL,
+            0x1422002214000000uL, 0x0a1100110a000000uL, 0x0508000805000000uL, 0x0204000402000000uL,
+            0x0040200020400000uL, 0x00a0100010a00000uL, 0x0050880088500000uL, 0x0028440044280000uL,
+            0x0014220022140000uL, 0x000a1100110a0000uL, 0x0005080008050000uL, 0x0002040004020000uL,
+            0x0000402000204000uL, 0x0000a0100010a000uL, 0x0000508800885000uL, 0x0000284400442800uL,
+            0x0000142200221400uL, 0x00000a1100110a00uL, 0x0000050800080500uL, 0x0000020400040200uL,
+            0x0000004020002040uL, 0x000000a0100010a0uL, 0x0000005088008850uL, 0x0000002844004428uL,
+            0x0000001422002214uL, 0x0000000a1100110auL, 0x0000000508000805uL, 0x0000000204000402uL,
+            0x0000000040200020uL, 0x00000000a0100010uL, 0x0000000050880088uL, 0x0000000028440044uL,
+            0x0000000014220022uL, 0x000000000a110011uL, 0x0000000005080008uL, 0x0000000002040004uL,
+            0x0000000000402000uL, 0x0000000000a01000uL, 0x0000000000508800uL, 0x0000000000284400uL,
+            0x0000000000142200uL, 0x00000000000a1100uL, 0x0000000000050800uL, 0x0000000000020400uL
+        )
+
+        private val ROOK_MAGICS = ulongArrayOf(
+            0x0040003402410286uL, 0x4086023048010084uL, 0x0041000208040001uL, 0x0022002004100902uL,
+            0x40045000200d0129uL, 0x0000081020004101uL, 0x102b001022804001uL, 0x00044a1200802102uL,
+            0x00300c0505a84200uL, 0x2000100102080400uL, 0x0001041020400801uL, 0x0008000400800880uL,
+            0x00d0000804004040uL, 0x0020004012210300uL, 0x00201008400124c0uL, 0x0140082240800180uL,
+            0x012a040040820001uL, 0x012008b042040001uL, 0x1206001004020008uL, 0x4005004800050010uL,
+            0x0000420020120008uL, 0x000040a001030050uL, 0x0c10004020084008uL, 0x4080004020004002uL,
+            0x5010008402000061uL, 0x2830022104004810uL, 0x0842006812001004uL, 0x0400041101000800uL,
+            0x0010000800801081uL, 0x0000402001001100uL, 0x0140008040802004uL, 0x4800400020800084uL,
+            0x0020008200040041uL, 0x0880018400020810uL, 0x2002000200100409uL, 0x6240080100041100uL,
+            0x00e40c2100100100uL, 0x4005001100200440uL, 0x0000208200410a00uL, 0x2080004040002008uL,
+            0x0004120018490084uL, 0x0000040002100108uL, 0x6109010008040002uL, 0x2804008008000480uL,
+            0x0008008008100680uL, 0x0202020020441080uL, 0x1910084008200042uL, 0x0080004000200044uL,
+            0x1505002041860900uL, 0x0402000108040200uL, 0x2802001002000408uL, 0x0802000810200600uL,
+            0x4011000810010020uL, 0x0001002000104100uL, 0x0029002040010082uL, 0x0002002100420080uL,
+            0x01000c4122820100uL, 0x2300108200040100uL, 0x2900010002082400uL, 0x02800c0008001281uL,
+            0x0100100100082004uL, 0x0200084200102080uL, 0x0240001000402001uL, 0x0580005021400080uL
+        )
+
+        private val BISHOP_MAGICS = ulongArrayOf(
+            0x00042c0802440084uL, 0x4000208801c10400uL, 0x0100008810012200uL, 0x6000002209112400uL,
+            0x020c020008420200uL, 0x4d00540206011120uL, 0x0010008048080400uL, 0x204042481409200auL,
+            0x0242441104010000uL, 0x00505009014c0080uL, 0x104028a808482000uL, 0x2018002120410210uL,
+            0x0100004042020200uL, 0x0020590441107044uL, 0x11124422011002e4uL, 0x2080410450404040uL,
+            0x0042424407001020uL, 0x0522048404140181uL, 0x0840100400402820uL, 0x2000420204100200uL,
+            0x050000c010401200uL, 0x0000120309021000uL, 0x0002011920421820uL, 0x0102121040180480uL,
+            0x600814a024010300uL, 0x1208210406210080uL, 0x0201080600902200uL, 0x0020009004050040uL,
+            0x0400601108080080uL, 0x0d01008a44880800uL, 0x042401a014440404uL, 0x140108a000c02402uL,
+            0x000a120010210101uL, 0x500206a000441000uL, 0x049003000082410duL, 0x0003001003004000uL,
+            0x0001080044004090uL, 0x00480404580224a8uL, 0x00901420300400a2uL, 0x00042406202004c5uL,
+            0x0001401100525002uL, 0x1820602508080400uL, 0x0120209410080800uL, 0x0002009402510000uL,
+            0x4008008c01202300uL, 0x48a802100090200buL, 0x11a4410208482100uL, 0x080408c809480801uL,
+            0x000c010c02220280uL, 0x10c1040402080440uL, 0x4000084110900600uL, 0x0010040420402000uL,
+            0x0104082040406a05uL, 0x2200088801002401uL, 0x0001042820810a00uL, 0x040a28e111020200uL,
+            0x0080240200842005uL, 0x0344040a52100002uL, 0x00010420452a2040uL, 0x0401104002080040uL,
+            0x4628048500400086uL, 0x1004412401050400uL, 0x1010024801252042uL, 0x0088508100510200uL
+        )
+
+        private val ROOK_MAGIC_INDEX_BITS = intArrayOf(
+            12, 11, 11, 11, 11, 11, 11, 12,
+            11, 10, 10, 10, 10, 10, 10, 11,
+            11, 10, 10, 10, 10, 10, 10, 11,
+            11, 10, 10, 10, 10, 10, 10, 11,
+            11, 10, 10, 10, 10, 10, 10, 11,
+            11, 10, 10, 10, 10, 10, 10, 11,
+            11, 10, 10, 10, 10, 10, 10, 11,
+            12, 11, 11, 11, 11, 11, 11, 12
+        )
+
+        private val BISHOP_MAGIC_INDEX_BITS = intArrayOf(
+            6, 5, 5, 5, 5, 5, 5, 6,
+            5, 5, 5, 5, 5, 5, 5, 5,
+            5, 5, 7, 7, 7, 7, 5, 5,
+            5, 5, 7, 9, 9, 7, 5, 5,
+            5, 5, 7, 9, 9, 7, 5, 5,
+            5, 5, 7, 7, 7, 7, 5, 5,
+            5, 5, 5, 5, 5, 5, 5, 5,
+            6, 5, 5, 5, 5, 5, 5, 6
+        )
     }
+}
+
+fun main() {
+    val board = Board("rnbqkbnr/pppppppp/8/8/8/8/PPP1PPPP/RNBQKBNR w KQkq - 0 1")
+    val bag = board.getMovements(Square.B1)
+    println(bag.encodedDestinations.toBitboardStringFormatted())
 }

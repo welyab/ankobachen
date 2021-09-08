@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Welyab da Silva Paula
+ * Copyright (C) 2021 Welyab da Silva Paula
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,15 +15,11 @@
  */
 package com.welyab.ankobachen
 
-data class PieceLocation(val piece: Piece, val position: Position) : Comparable<PieceLocation> {
-
-    override fun compareTo(other: PieceLocation): Int {
-        val rowDiff = position.row - other.position.row
-        if (rowDiff != 0) return -rowDiff
-        val colDiff = position.column - other.position.column
-        if (colDiff != 0) return colDiff
-        return piece.compareTo(other.piece)
-    }
-
-    override fun toString() = "$piece at $position"
+enum class PieceType {
+    KING,
+    QUEEN,
+    ROOK,
+    BISHOP,
+    KNIGHT,
+    PAWN
 }

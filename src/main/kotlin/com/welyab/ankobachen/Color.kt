@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Welyab da Silva Paula
+ * Copyright (C) 2021 Welyab da Silva Paula
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -15,41 +15,58 @@
  */
 package com.welyab.ankobachen
 
-class ColorException(message: String) : ChessException(message, null)
+class ColorException(message: String) : ChessException(message)
 
-enum class Color {
+enum class Color(val value: Char) {
 
-    WHITE {
-        override val opposite get() = BLACK
-        override val letter = Color.WHITE_LETTER
+    WHITE(Color.WHITE_COLOR_LETTER_CHAR) {
+        override val opposite: Color
+            get() = BLACK
 
-        override val isWhite = true
-        override val isBlack = false
+        override val isWhite: Boolean
+            get() = true
+
+        override val isBlack: Boolean
+            get() = false
     },
-    BLACK {
-        override val opposite get() = WHITE
-        override val letter = Color.BLACK_LETTER
 
-        override val isWhite = false
-        override val isBlack = true
+    BLACK(Color.BLACK_COLOR_LETTER_CHAR) {
+        override val opposite: Color
+            get() = WHITE
+
+        override val isWhite: Boolean
+            get() = false
+
+        override val isBlack: Boolean
+            get() = true
     };
 
     abstract val opposite: Color
-    abstract val letter: Char
 
     abstract val isWhite: Boolean
     abstract val isBlack: Boolean
 
-    override fun toString() = name.lowercase().replaceFirstChar { it.titlecaseChar() }
-
     companion object {
-        const val WHITE_LETTER = 'w'
-        const val BLACK_LETTER = 'b'
 
-        fun from(letter: Char) = when (letter) {
-            WHITE_LETTER -> WHITE
-            BLACK_LETTER -> BLACK
-            else -> throw ColorException("Unexpected color letter: $letter")
+        const val WHITE_COLOR_LETTER_CHAR = 'w'
+        const val BLACK_COLOR_LETTER_CHAR = 'b'
+        const val WHITE_COLOR_LETTER_STRING = "w"
+        const val BLACK_COLOR_LETTER_STRING = "b"
+
+        fun from(color: Char): Color = when (color) {
+            WHITE_COLOR_LETTER_CHAR -> WHITE
+            BLACK_COLOR_LETTER_CHAR -> BLACK
+            else -> throw ColorException(
+                "Invalid color. Use '$WHITE_COLOR_LETTER_CHAR' or '$BLACK_COLOR_LETTER_CHAR'"
+            )
+        }
+
+        fun from(color: String): Color = when (color) {
+            WHITE_COLOR_LETTER_STRING -> WHITE
+            BLACK_COLOR_LETTER_STRING -> BLACK
+            else -> throw ColorException(
+                "Invalid color. Use \"$WHITE_COLOR_LETTER_STRING\" or \"$BLACK_COLOR_LETTER_STRING\""
+            )
         }
     }
 }
