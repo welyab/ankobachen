@@ -7,10 +7,6 @@ plugins {
 group 'com.welyab.ankobachen'
 version '1.0.0-SNAPSHOT'
 
-application {
-    mainClassName = 'com.welyab.ankobachen.Main'
-}
-
 repositories {
     mavenCentral()
 }
@@ -19,9 +15,9 @@ dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
     implementation 'org.apache.commons:commons-compress:1.21'
 
-    testCompile 'org.junit.jupiter:junit-jupiter-api:5.7.2'
-    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.7.2'
-    testCompile 'org.junit.jupiter:junit-jupiter-params:5.7.2'
+    testCompile 'org.junit.jupiter:junit-jupiter-api:5.8.0-RC1'
+    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.8.0-RC1'
+    testCompile 'org.junit.jupiter:junit-jupiter-params:5.8.0-RC1'
 }
 
 tasks {

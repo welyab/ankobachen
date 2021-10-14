@@ -313,6 +313,8 @@ enum class Piece(
         override val isBlackPawn = true
     };
 
+    val index: Int get() = ordinal
+
     abstract val isWhite: Boolean
     abstract val isBlack: Boolean
 

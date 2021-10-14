@@ -67,7 +67,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\ankobachen-1.0.0-SNAPSHOT.jar;%APP_HOME%\lib\kotlin-stdlib-jdk8-1.5.20.jar;%APP_HOME%\lib\commons-compress-1.20.jar;%APP_HOME%\lib\jcodec-javase-0.2.5.jar;%APP_HOME%\lib\jcodec-0.2.5.jar;%APP_HOME%\lib\commons-math3-3.6.1.jar;%APP_HOME%\lib\kotlin-stdlib-jdk7-1.5.20.jar;%APP_HOME%\lib\kotlinx-coroutines-core-jvm-1.4.2.jar;%APP_HOME%\lib\kotlin-stdlib-1.5.20.jar;%APP_HOME%\lib\annotations-13.0.jar;%APP_HOME%\lib\kotlin-stdlib-common-1.5.20.jar
+set CLASSPATH=%APP_HOME%\lib\ankobachen-1.0.0-SNAPSHOT.jar;%APP_HOME%\lib\kotlin-stdlib-jdk8-1.5.30.jar;%APP_HOME%\lib\commons-compress-1.21.jar;%APP_HOME%\lib\kotlin-stdlib-jdk7-1.5.30.jar;%APP_HOME%\lib\kotlin-stdlib-1.5.30.jar;%APP_HOME%\lib\annotations-13.0.jar;%APP_HOME%\lib\kotlin-stdlib-common-1.5.30.jar
 
 
 @rem Execute ankobachen

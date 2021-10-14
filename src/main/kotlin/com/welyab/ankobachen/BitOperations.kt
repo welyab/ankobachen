@@ -17,8 +17,9 @@ package com.welyab.ankobachen
 
 const val EMPTY = 0UL
 const val FULL = ULong.MAX_VALUE
+const val FIRST_SET = 0x8000000000000000UL
 
-fun ULong.shiftRight(bits: Int) = if (bits >= 63) EMPTY else shr(bits)
+fun ULong.shiftRight(bits: Int) = if (bits > 63) EMPTY else shr(bits)
 
 val ULong.index get() = countLeadingZeroBits()
 

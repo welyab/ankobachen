@@ -21,5 +21,7 @@ enum class PieceType {
     ROOK,
     BISHOP,
     KNIGHT,
-    PAWN
+    PAWN;
+
+    val index: Int get() = ordinal
 }
