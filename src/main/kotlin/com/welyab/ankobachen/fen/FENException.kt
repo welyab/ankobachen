@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2024 Welyab da Silva Paula
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,4 +14,16 @@
  * limitations under the License.
  */
 
-rootProject.name = 'ankobachen'
+
+package com.welyab.ankobachen.fen
+
+import com.welyab.ankobachen.ChessException
+
+class FENException(
+    val fen: String,
+    message: String? = null,
+    cause: Throwable? = null
+) : ChessException(
+    message = "${if (message.isNullOrBlank()) "" else message}${if (message.isNullOrBlank()) "" else ". "}FEN = $fen",
+    cause = cause
+)

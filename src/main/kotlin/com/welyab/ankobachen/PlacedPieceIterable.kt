@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2024 Welyab da Silva Paula
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,4 +14,6 @@
  * limitations under the License.
  */
 
-rootProject.name = 'ankobachen'
+package com.welyab.ankobachen
+
+interface PlacedPieceIterable : Iterable<PlacedPiece>

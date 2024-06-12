@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright 2024 Welyab da Silva Paula
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,4 +14,15 @@
  * limitations under the License.
  */
 
-rootProject.name = 'ankobachen'
+package com.welyab.ankobachen
+
+enum class PieceType {
+    KING,
+    QUEEN,
+    ROOK,
+    BISHOP,
+    KNIGHT,
+    PAWN;
+
+    fun getIndex(): Int = ordinal
+}

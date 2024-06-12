@@ -1,55 +1,48 @@
-/*
- * Copyright (C) 2020 Welyab da Silva Paula
+/**
+ * Copyright 2024 Welyab da Silva Paula
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
+
 package com.welyab.ankobachen
 
-class ColorException(message: String) : ChessException(message, null)
+import com.welyab.ankobachen.ColorSymbol.BLACK_SYMBOL
+import com.welyab.ankobachen.ColorSymbol.WHITE_SYMBOL
 
-enum class Color {
+object ColorSymbol {
+    const val BLACK_SYMBOL = 'b'
+    const val WHITE_SYMBOL = 'w'
+}
 
-    WHITE {
-        override val opposite get() = BLACK
-        override val letter = Color.WHITE_LETTER
+enum class Color(
+    val symbol: Char,
+) {
+    BLACK(
+        symbol = BLACK_SYMBOL,
+    ),
+    WHITE(
+        symbol = WHITE_SYMBOL
+    );
 
-        override val isWhite = true
-        override val isBlack = false
-    },
-    BLACK {
-        override val opposite get() = WHITE
-        override val letter = Color.BLACK_LETTER
-
-        override val isWhite = false
-        override val isBlack = true
-    };
-
-    abstract val opposite: Color
-    abstract val letter: Char
-
-    abstract val isWhite: Boolean
-    abstract val isBlack: Boolean
-
-    override fun toString() = name.lowercase().replaceFirstChar { it.titlecaseChar() }
+    fun getIndex(): Int = ordinal
 
     companion object {
-        const val WHITE_LETTER = 'w'
-        const val BLACK_LETTER = 'b'
-
-        fun from(letter: Char) = when (letter) {
-            WHITE_LETTER -> WHITE
-            BLACK_LETTER -> BLACK
-            else -> throw ColorException("Unexpected color letter: $letter")
+        fun fromSymbol(
+            symbol: Char
+        ): Color = when (symbol) {
+            BLACK.symbol -> BLACK
+            WHITE.symbol -> WHITE
+            else -> throw IllegalArgumentException("unknown color symbol: $symbol")
         }
     }
 }
